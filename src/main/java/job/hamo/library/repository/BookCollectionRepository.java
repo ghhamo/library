@@ -10,8 +10,8 @@ import java.util.Set;
 import java.util.UUID;
 
 @Repository
-public interface BookCollectionRepository extends JpaRepository<BookCollection, UUID> {
-    Optional<BookCollection> findById(UUID id);
+public interface BookCollectionRepository extends JpaRepository<BookCollection, Long> {
+    Optional<BookCollection> findById(Long id);
 
     @Query(value = "SELECT * FROM collection_books", nativeQuery = true)
     Set<Object[]> findAllRelationship();

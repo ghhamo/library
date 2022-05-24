@@ -4,25 +4,23 @@ import job.hamo.library.dto.CreateBookDTO;
 import job.hamo.library.entity.*;
 import job.hamo.library.exception.*;
 import job.hamo.library.repository.*;
-import job.hamo.library.dto.AuthorDTO;
 import job.hamo.library.dto.BookDTO;
-import job.hamo.library.util.DataGenerator;
-import job.hamo.library.util.ImageDownloader;
-import job.hamo.library.util.UUIDUtil;
+import job.hamo.library.util.*;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
-import javax.persistence.*;
-import javax.transaction.Transactional;
-import java.io.*;
+import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadPoolExecutor;
-
-import static job.hamo.library.util.DataGenerator.randomString;
 
 @Service
 public class BookService {
+
+    @Value("${spring.jpa.properties.hibernate.jdbc.batch_size}")
+    private int batchSize;
 
     @Autowired
     private BookRepository bookRepository;
@@ -37,38 +35,73 @@ public class BookService {
     private RatingRepository ratingRepository;
 
     @Autowired
+    private FileRepository fileRepository;
+
+    @Autowired
     private AuthorRepository authorRepository;
+
+    @Autowired
+    private PublisherService publisherService;
+
+    @Autowired
+    private AuthorService authorService;
+
+    @Autowired
+    private PublisherRepository publisherRepository;
+
+    @Autowired
+    private BookImageUrlGenerator bookImageUrlGenerator;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Autowired
     private ImageDownloader imageDownloader;
 
     @Autowired
-    private EntityManager entityManager;
+    private CsvParser csvParser;
 
-    @Transactional
-    public List<CreateBookDTO> exportAll() {
-        List<Book> all = bookRepository.findAll();
-        List<CreateBookDTO> result = new LinkedList<>();
-        for (Book book : all) {
-            result.add(CreateBookDTO.fromBook(book));
-        }
-        return result;
-    }
+    @Autowired
+    private CSVUtil csvUtil;
 
-    @Transactional
-    public List<CreateBookDTO> importBooks(Iterable<CreateBookDTO> books) {
-        List<CreateBookDTO> invalidDTOs = new LinkedList<>();
-        for (CreateBookDTO createBookDTO : books) {
-            if (createBookDTO == null) {
-                continue;
-            }
-            try {
-                create(createBookDTO);
-            } catch (ValidationException validationException) {
-                invalidDTOs.add(createBookDTO);
-            }
+    @Autowired
+    private BatchProcessor batchProcessor;
+
+    public void importAuthorsPublisherAndBooks(MultipartFile file) {
+        List<String[]> rows = csvParser.csvParseToString(file, "book");
+        Set<Author> setAuthors = new HashSet<>();
+        Set<Publisher> setPublishers = new HashSet<>();
+        for (String[] row : rows) {
+            Author author = new Author();
+            author.setName(row[2]);
+            setAuthors.add(author);
+            Publisher publisher = new Publisher();
+            publisher.setName(row[4]);
+            setPublishers.add(publisher);
         }
-        return invalidDTOs;
+//        List<Publisher> savedPublishers = publisherRepository.saveAll(setPublishers);
+//        List<Author> savedAuthors = authorRepository.saveAll(setAuthors);
+//        Map<String, Publisher> publishers = publisherService.publishersMapToMap(savedPublishers);
+//        Map<String, Author> authors = authorService.authorsMapToMap(savedAuthors);
+        Set<Book> books = new HashSet<>();
+        for (String[] row : rows) {
+            Book book = new Book();
+            book.setIsbn(row[0]);
+            book.setTitle(row[1]);
+//            book.setAuthor(authors.get(row[2].toLowerCase()));
+            book.setAuthor(null);
+            book.setYearOfPublication(row[3]);
+//            book.setPublisher(publishers.get(row[4].toLowerCase()));
+            book.setPublisher(null);
+            book.setImageUrlS(row[5]);
+            book.setImageUrlM(row[6]);
+            book.setImageUrlL(row[7]);
+            books.add(book);
+        }
+//        books = books.stream().limit(100000).collect(Collectors.toSet());
+
+        batchProcessor.batchInsert(books, bookRepository);
+//        bookRepository.saveAll(books);
     }
 
     public Iterable<BookDTO> getAllBook() {
@@ -76,102 +109,42 @@ public class BookService {
         return BookDTO.mapBookSetToBookDto(books);
     }
 
+    @Transactional
     public BookDTO create(CreateBookDTO createBookDTO) {
-        Book book = null;
+        Book book;
         Objects.requireNonNull(createBookDTO);
-        Objects.requireNonNull(createBookDTO.authorId());
-        Objects.requireNonNull(createBookDTO.genreId());
-        Objects.requireNonNull(createBookDTO.title());
-        Author author = authorRepository.findById(createBookDTO.authorId()).orElseThrow(() ->
-                new AuthorUUIDNotFoundException(createBookDTO.authorId()));
-        Genre genre = genreRepository.findById(createBookDTO.genreId()).orElseThrow(() ->
-                new GenreUUIDNotFoundException(createBookDTO.genreId()));
-        if (createBookDTO.bigImageUrl() == null) {
-            try {
-                assert false;
-                book.setBigImageUrl(DataGenerator.addBookUrl());
-            } catch (IOException ex) {
-                throw new RuntimeException(ex);
-            }
-        }
+        Objects.requireNonNull(createBookDTO.getISBN());
+        Objects.requireNonNull(createBookDTO.getTitle());
+        Objects.requireNonNull(createBookDTO.getAuthorId());
+        Objects.requireNonNull(createBookDTO.getYearOfPublication());
+        Objects.requireNonNull(createBookDTO.getPublisherId());
+        Objects.requireNonNull(createBookDTO.getImageUrlL());
+        Objects.requireNonNull(createBookDTO.getImageUrlM());
+        Objects.requireNonNull(createBookDTO.getImageUrlS());
         book = CreateBookDTO.toBook(createBookDTO);
-        if (createBookDTO.id() != null) {
-            boolean existsById = bookRepository.existsById(createBookDTO.id());
-            if (existsById) {
-                throw new BookUUIDAlreadyExistsException(createBookDTO.id());
-            }
-            entityManager.createNativeQuery("INSERT INTO book (id, title, big_image_url, author_id, genre_id) VALUES (?,?,?,?,?)")
-                    .setParameter(1, UUIDUtil.asBytes(book.getId()))
-                    .setParameter(2, book.getTitle())
-                    .setParameter(3, book.getBigImageUrl())
-                    .setParameter(4, UUIDUtil.asBytes(author.getId()))
-                    .setParameter(5, UUIDUtil.asBytes(genre.getId()))
-                    .executeUpdate();
-            book = bookRepository.getById(createBookDTO.id());
-        } else {
-            book = bookRepository.save(CreateBookDTO.toBook(createBookDTO));
-        }
+
+        book = bookRepository.save(CreateBookDTO.toBook(createBookDTO));
+
         return BookDTO.fromBook(book);
     }
 
-    public AuthorDTO getAuthorOfBook(UUID id) {
-        Objects.requireNonNull(id);
-        Book book = bookRepository.findById(id).orElseThrow(() -> new BookUUIDNotFoundException(id));
-        return AuthorDTO.fromAuthor(book.getAuthor());
-
-    }
-
-    public BookDTO getBookById(UUID id) {
-        Objects.requireNonNull(id);
-        Book book = bookRepository.findById(id).orElseThrow(() -> new BookUUIDNotFoundException(id));
-        return BookDTO.fromBook(book);
-    }
-
-    public BookDTO updateBook(UUID id) {
-        Book book = bookRepository.findById(id).orElseThrow(() -> new BookUUIDNotFoundException(id));
-        book.setTitle(randomString(12));
-        book.getAuthor().setName(randomString(12));
-        book.getGenre().setName(randomString(12));
+    public BookDTO updateBook(Long id) {
+        Book book = bookRepository.findById(id).orElseThrow(() -> new BookIdNotFoundException(id));
+        book.setTitle("title");
+        book.getGenre().setName("genre");
         bookRepository.save(book);
         return BookDTO.fromBook(book);
     }
 
-    public CreateBookDTO csvToBook(String[] bookRow) {
-        return new CreateBookDTO(
-                UUID.fromString(bookRow[0]),
-                bookRow[1],
-                bookRow[2],
-                UUID.fromString(bookRow[3]),
-                UUID.fromString(bookRow[4])
-        );
-    }
-
     @Transactional
-    public void downloadBookImages() {
-        Set<Object[]> set = bookRepository.findBookWhereImageDoNotExist();
-        ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(10);
-        for (Object[] row : set) {
-            executor.execute(() -> {
-                try {
-                    imageDownloader.downloadImage(UUIDUtil.asUUID((byte[]) row[0]), (String) row[1]);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            });
-        }
-        executor.shutdown();
-    }
-
-
-    @Transactional
-    public void rateBook(UUID userId, UUID bookId, int userRating) {
+    public void rateBook(Long userId, Long bookId, int userRating) {
         Objects.requireNonNull(userId);
         Objects.requireNonNull(bookId);
-        if (userRating < 0 || userRating > 5) {
+        if (userRating < 0 || userRating > 10) {
             throw new IllegalRatingException(userRating);
         }
-        User user = userRepository.findById(userId).orElseThrow(() -> new UserUUIDNotFoundException(userId));
-        Book book = bookRepository.findById(bookId).orElseThrow(() -> new BookUUIDNotFoundException(bookId));
+        User user = userRepository.findById(userId).orElseThrow(() -> new UserIdNotFoundException(userId));
+        Book book = bookRepository.findById(bookId).orElseThrow(() -> new BookIdNotFoundException(bookId));
         Rating rating = new Rating();
         rating.setRating(userRating);
         rating.setBook(book);
@@ -180,7 +153,7 @@ public class BookService {
         Long countOfRating = book.getCountOfRating();
         int oldRatingOfBook = book.getRating();
         book.setRating(countRatingOfBook(countOfRating, oldRatingOfBook, userRating));
-        book.getUserRatings().add(ratingFromDB);
+        book.getRatings().add(ratingFromDB);
         bookRepository.save(book);
         user.getRatedBooks().add(ratingFromDB);
         userRepository.save(user);
@@ -192,5 +165,19 @@ public class BookService {
         sumOfRating += userRating;
         return (int) (sumOfRating / countOfRating);
     }
-}
 
+    public BookDTO getBookById(Long id) {
+        Objects.requireNonNull(id);
+        Book book = bookRepository.findById(id).orElseThrow(() -> new BookIdNotFoundException(id));
+        return BookDTO.fromBook(book);
+    }
+
+    public void downloadImage(Long id) throws IOException {
+        Optional<Book> book = bookRepository.getBookWhereBigImageDoNotExistsById(id);
+        if (book.isPresent()) {
+            throw new ImageAlreadyDownloadedException();
+        } else {
+            imageDownloader.downloadImage(id);
+        }
+    }
+}

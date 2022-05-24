@@ -1,11 +1,8 @@
 package job.hamo.library.util;
 
-import org.springframework.stereotype.Component;
-
 import java.nio.ByteBuffer;
 import java.util.UUID;
 
-@Component
 public class UUIDUtil {
 
     public static UUID fromHexString(String hex) {

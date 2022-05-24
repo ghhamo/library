@@ -8,21 +8,20 @@ import java.util.UUID;
 public class Genre {
 
     @Id
-    @GeneratedValue
-    @Column(name = "id", updatable = false, nullable = false, columnDefinition = "BINARY(16)")
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.SEQUENCE)
+    private Long id;
 
     @Column(nullable = false, unique = true)
     private String name;
 
-    @OneToMany(mappedBy = "genre", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "genre", fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
     private Set<Book> books;
 
-    public UUID getId() {
+    public Long getId() {
         return id;
     }
 
-    public void setId(UUID id) {
+    public void setId(Long id) {
         this.id = id;
     }
 

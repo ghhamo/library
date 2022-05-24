@@ -1,43 +1,43 @@
 package job.hamo.library.util;
 
-import job.hamo.library.entity.BookImage;
-import job.hamo.library.repository.BookImageRepository;
-import job.hamo.library.service.BookImageService;
+import job.hamo.library.entity.File;
+import job.hamo.library.exception.BookImageUrlNotExistsException;
+import job.hamo.library.repository.FileRepository;
+import job.hamo.library.repository.BookRepository;
+import job.hamo.library.service.FileSystemService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.*;
 import java.net.ConnectException;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Component
 public class ImageDownloader implements Runnable{
 
     @Autowired
-    private ImageResizer imageResizer;
+    private FileSystemService fileSystemService;
 
     @Autowired
-    private BookImageService bookImageService;
+    private FileRepository fileRepository;
 
     @Autowired
-    private BookImageRepository bookImageRepository;
+    private BookRepository bookRepository;
 
     @Value("${image.folder}")
-    String imageFolder;
+    private String imageFolder;
 
-    @Value("${image.medium.size}")
-    private Integer imageMediumSize;
-
-    @Value("${image.small.size}")
-    private Integer imageSmallSize;
-
-    public void downloadImage(UUID bookId, String bigImageUrlOfBook) throws IOException {
-        List<BookImage> bookImages = new ArrayList<>();
-        URL url = new URL(bigImageUrlOfBook);
+    @Transactional
+    public void downloadImage(Long bookId) throws IOException {
+        Optional<String> bigImageUrlOfBook = bookRepository.findImageUrlLByBookId(bookId);
+        if (bigImageUrlOfBook.isEmpty()) {
+            throw new BookImageUrlNotExistsException();
+        }
+        URL url = new URL(bigImageUrlOfBook.get());
         InputStream in;
         try {
             in = new BufferedInputStream(url.openStream());
@@ -54,7 +54,7 @@ public class ImageDownloader implements Runnable{
         in.close();
         byte[] response = out.toByteArray();
         String name = String.format("%s_%s", UUID.randomUUID().toString().substring(1, 13), System.currentTimeMillis() / 1000);
-        File bigImage = new File(imageFolder + name + ".jpg");
+        java.io.File bigImage = new java.io.File(imageFolder + name + ".jpg");
         while (true) {
             if (bigImage.createNewFile()) {
                 FileOutputStream fos = new FileOutputStream(bigImage);
@@ -63,18 +63,11 @@ public class ImageDownloader implements Runnable{
                 break;
             } else {
                 name = String.format("%s_%s", UUID.randomUUID().toString().substring(1, 13), System.currentTimeMillis() / 1000);
-                bigImage = new File(imageFolder + name + ".jpg");
+                bigImage = new java.io.File(imageFolder + name + ".jpg");
             }
         }
-        BookImage bookImage = bookImageService.addBookImage(bigImage, bookId, "big");
-        bookImages.add(bookImage);
-        File mediumImage = imageResizer.resizeImage(bigImage, imageMediumSize);
-        bookImage = bookImageService.addBookImage(mediumImage, bookId, "medium");
-        bookImages.add(bookImage);
-        File smallImage = imageResizer.resizeImage(bigImage, imageSmallSize);
-        bookImage = bookImageService.addBookImage(smallImage, bookId, "small");
-        bookImages.add(bookImage);
-        bookImageRepository.saveAll(bookImages);
+        File file = fileSystemService.createFileSystem(bigImage, bookId, "big");
+        fileRepository.save(file);
     }
 
     @Override

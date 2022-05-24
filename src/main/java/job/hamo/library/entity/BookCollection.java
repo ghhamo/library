@@ -8,9 +8,8 @@ import java.util.UUID;
 public class BookCollection {
 
     @Id
-    @GeneratedValue
-    @Column(name = "id", updatable = false, nullable = false, columnDefinition = "BINARY(16)")
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.SEQUENCE)
+    private Long id;
 
     @Column(nullable = false, unique = true)
     private String name;
@@ -25,11 +24,11 @@ public class BookCollection {
             inverseJoinColumns = {@JoinColumn(name = "book_id")})
     private Set<Book> books;
 
-    public UUID getId() {
+    public Long getId() {
         return id;
     }
 
-    public void setId(UUID id) {
+    public void setId(Long id) {
         this.id = id;
     }
 
@@ -55,16 +54,6 @@ public class BookCollection {
 
     public void setUser(User user) {
         this.user = user;
-    }
-
-    @Override
-    public String toString() {
-        return "Collection{" +
-                "id=" + id +
-                ", name='" + name + '\'' +
-                ", user=" + user +
-                ", books=" + books +
-                '}';
     }
 }
 

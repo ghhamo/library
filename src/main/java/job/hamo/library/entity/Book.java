@@ -1,65 +1,84 @@
 package job.hamo.library.entity;
 
+import org.apache.commons.lang3.builder.EqualsBuilder;
+import org.apache.commons.lang3.builder.HashCodeBuilder;
+
 import javax.persistence.*;
+import java.io.Serializable;
+import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
 
 @Entity
-public class Book {
+/*
+@Table( name = "book", indexes = {
+        @Index(name = "index_author_id", columnList="author_id", unique = true),
+        @Index(name = "index_publisher_id", columnList="publisher_id", unique = true)
+})
+*/
+public class Book implements Serializable {
 
     @Id
-    @GeneratedValue
-    @Column(name = "id", updatable = false, nullable = false, columnDefinition = "BINARY(16)")
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "book_id_sequence")
+    @SequenceGenerator(name = "book_id_sequence", sequenceName = "book_id_sequence", allocationSize = 50000)
+    private Long id;
+
+    @Column(nullable = false)
+    private String isbn;
 
     @Column(nullable = false)
     private String title;
 
-    @ManyToMany(mappedBy = "books", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
-    private Set<BookCollection> bookCollections;
-
-    @ManyToMany(mappedBy = "books", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
-    private Set<BookList> bookLists;
-
-    @ManyToOne(fetch = FetchType.LAZY, optional = false, cascade = CascadeType.ALL)
-    @JoinColumn(name = "author_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY, optional = true, cascade = CascadeType.REMOVE)
+    @JoinColumn(name = "author_id", nullable = true)
     private Author author;
 
+    private String YearOfPublication;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = true, cascade = CascadeType.REMOVE)
+    @JoinColumn(name = "publisher_id", nullable = true)
+    private Publisher publisher;
+
+    @ManyToMany(mappedBy = "books", fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
+    private Set<BookCollection> bookCollections;
+
+    @ManyToMany(mappedBy = "books", fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
+    private Set<BookList> bookLists;
+
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "genre_id", nullable = false)
+    @JoinColumn(name = "genre_id")
     private Genre genre;
 
-    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
-    private Set<Rating> userRatings;
+    @OneToMany(mappedBy = "book", fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
+    private Set<Rating> ratings;
 
-    @OneToMany(mappedBy = "book", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
-    private Set<BookImage> bookImages;
+    @OneToMany(mappedBy = "book", fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
+    private Set<File> files;
 
     @Column(columnDefinition = "integer default 0")
     private int rating;
 
+    @Column(columnDefinition = "integer default 0")
     private Long countOfRating;
 
-    private String bigImageUrl;
+    @Column(name = "image_url_l")
+    private String imageUrlL;
 
-    private String mediumImageUrl;
+    @Column(name = "image_url_m")
+    private String imageUrlM;
 
-    private String smallImageUrl;
+    @Column(name = "image_url_s")
+    private String imageUrlS;
 
-    public UUID getId() {
+    public Long getId() {
         return id;
     }
 
-    public void setId(UUID id) {
+    public void setId(Long id) {
         this.id = id;
     }
 
-    public Set<BookImage> getBookImages() {
-        return bookImages;
-    }
-
-    public void setBookImages(Set<BookImage> bookImages) {
-        this.bookImages = bookImages;
+    public void setIsbn(String isbn) {
+        this.isbn = isbn;
     }
 
     public String getTitle() {
@@ -70,36 +89,8 @@ public class Book {
         this.title = title;
     }
 
-    public Author getAuthor() {
-        return author;
-    }
-
-    public void setAuthor(Author author) {
-        this.author = author;
-    }
-
-    public Set<BookCollection> getCollections() {
-        return bookCollections;
-    }
-
-    public void setCollections(Set<BookCollection> bookCollections) {
-        this.bookCollections = bookCollections;
-    }
-
-    public Set<BookList> getBookLists() {
-        return bookLists;
-    }
-
-    public void setBookLists(Set<BookList> bookLists) {
-        this.bookLists = bookLists;
-    }
-
     public Genre getGenre() {
         return genre;
-    }
-
-    public void setGenre(Genre genre) {
-        this.genre = genre;
     }
 
     public int getRating() {
@@ -110,51 +101,79 @@ public class Book {
         this.rating = rating;
     }
 
-    public Set<Rating> getUserRatings() {
-        return userRatings;
-    }
-
-    public void setUserRatings(Set<Rating> userRatings) {
-        this.userRatings = userRatings;
-    }
-
     public Long getCountOfRating() {
         return countOfRating;
     }
 
-    public void setCountOfRating(Long countOfRating) {
-        this.countOfRating = countOfRating;
+    public String getImageUrlL() {
+        return imageUrlL;
     }
 
-    public String getBigImageUrl() {
-        return bigImageUrl;
+    public void setImageUrlL(String imageUrlL) {
+        this.imageUrlL = imageUrlL;
     }
 
-    public void setBigImageUrl(String bigImageUrl) {
-        this.bigImageUrl = bigImageUrl;
+    public String getIsbn() {
+        return isbn;
     }
 
-    public String getMediumImageUrl() {
-        return mediumImageUrl;
+    public String getYearOfPublication() {
+        return YearOfPublication;
     }
 
-    public void setMediumImageUrl(String mediumImageUrl) {
-        this.mediumImageUrl = mediumImageUrl;
+    public void setYearOfPublication(String yearOfPublication) {
+        YearOfPublication = yearOfPublication;
     }
 
-    public String getSmallImageUrl() {
-        return smallImageUrl;
+    public String getImageUrlM() {
+        return imageUrlM;
     }
 
-    public void setSmallImageUrl(String smallImageUrl) {
-        this.smallImageUrl = smallImageUrl;
+    public String getImageUrlS() {
+        return imageUrlS;
     }
 
-    public Set<BookImage> getLocalFiles() {
-        return bookImages;
+    public Publisher getPublisher() {
+        return publisher;
     }
 
-    public void setLocalFiles(Set<BookImage> bookImages) {
-        this.bookImages = bookImages;
+    public void setPublisher(Publisher publisher) {
+        this.publisher = publisher;
+    }
+
+    public Set<Rating> getRatings() {
+        return ratings;
+    }
+
+    public void setRatings(Set<Rating> ratings) {
+        this.ratings = ratings;
+    }
+
+    public Author getAuthor() {
+        return author;
+    }
+
+    public void setAuthor(Author author) {
+        this.author = author;
+    }
+
+    public void setImageUrlM(String imageUrlM) {
+        this.imageUrlM = imageUrlM;
+    }
+
+    public void setImageUrlS(String imageUrlS) {
+        this.imageUrlS = imageUrlS;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Book book)) return false;
+        return isbn.equalsIgnoreCase(book.isbn);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(isbn.toLowerCase());
     }
 }

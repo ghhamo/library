@@ -1,55 +1,56 @@
 package job.hamo.library.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import javax.persistence.*;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
 
 @Entity
 public class User {
 
     @Id
-    @GeneratedValue
-    @Column(name = "id", updatable = false, nullable = false, columnDefinition = "BINARY(16)")
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "emp_sequence")
+    @SequenceGenerator(name = "emp_sequence", sequenceName = "emp_id_seq", allocationSize = 10000)
+    private Long id;
 
-    @Column(nullable = false)
     private String name;
 
-    @Column(nullable = false)
     private String surname;
 
-    @Column(nullable = false, unique = true)
     private String email;
-    
-    @Column(nullable = false)
+
     private String password;
 
     private boolean enabled;
 
-    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
-    @JsonIgnore
+    private String country;
+
+    private String region;
+
+    private String city;
+
+    @Column(columnDefinition = "integer default 0")
+    private int age;
+
+    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
     private List<BookList> bookLists;
 
-    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
-    @JsonIgnore
+    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
     private List<BookCollection> bookCollections;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "role_id", nullable = false)
     private Role role;
 
-    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
-    @JsonIgnore
+    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
     private Set<Rating> ratedBooks;
 
-    public UUID getId() {
+    public Long getId() {
         return id;
     }
 
-    public void setId(UUID id) {
+    public void setId(Long id) {
         this.id = id;
     }
 
@@ -85,14 +86,6 @@ public class User {
         return password;
     }
 
-    public List<BookList> getBookLists() {
-        return bookLists;
-    }
-
-    public void setBookLists(List<BookList> bookLists) {
-        this.bookLists = bookLists;
-    }
-
     public Role getRole() {
         return role;
     }
@@ -113,32 +106,34 @@ public class User {
         return ratedBooks;
     }
 
-    public void setRatedBooks(Set<Rating> ratedBooks) {
-        this.ratedBooks = ratedBooks;
+    public int getAge() {
+        return age;
     }
 
-    public List<BookCollection> getCollections() {
-        return bookCollections;
+    public void setAge(int age) {
+        this.age = age;
+    }
+    public String getCountry() {
+        return country;
     }
 
-    public void setCollections(List<BookCollection> bookCollections) {
-        this.bookCollections = bookCollections;
+    public void setCountry(String country) {
+        this.country = country;
     }
 
-    @Override
-    public String
-    toString() {
-        return "User{" +
-                "id=" + id +
-                ", name='" + name + '\'' +
-                ", surname='" + surname + '\'' +
-                ", email='" + email + '\'' +
-                ", password='" + password + '\'' +
-                ", enabled=" + enabled +
-                ", bookLists=" + bookLists +
-                ", collections=" + bookCollections +
-                ", role=" + role +
-                ", ratedBooks=" + ratedBooks +
-                '}';
+    public String getRegion() {
+        return region;
+    }
+
+    public void setRegion(String region) {
+        this.region = region;
+    }
+
+    public String getCity() {
+        return city;
+    }
+
+    public void setCity(String city) {
+        this.city = city;
     }
 }

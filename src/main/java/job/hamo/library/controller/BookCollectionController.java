@@ -3,17 +3,15 @@ package job.hamo.library.controller;
 import job.hamo.library.dto.*;
 import job.hamo.library.entity.BookCollection;
 import job.hamo.library.service.BookCollectionService;
-import job.hamo.library.util.CSVParser;
+import job.hamo.library.util.CsvParser;
+import job.hamo.library.util.CSVUtil;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/bookCollections")
@@ -23,14 +21,17 @@ public class BookCollectionController {
     private BookCollectionService bookCollectionService;
 
     @Autowired
-    private CSVParser csvParser;
+    private CsvParser csvParser;
+
+    @Autowired
+    private CSVUtil csvUtil;
 
     @PostMapping("/import")
     public Iterable<CreateBookCollectionDTO> importCollections(@RequestParam("file") MultipartFile file) {
         List<String[]> rows = csvParser.csvParseToString(file, "bookCollection");
         List<CreateBookCollectionDTO> collectionDTOS = new ArrayList<>();
         for (String[] row : rows) {
-            BookCollection bookCollection = bookCollectionService.csvToCollection(row);
+            BookCollection bookCollection = csvUtil.csvToCollection(row);
             collectionDTOS.add(CreateBookCollectionDTO.fromBookCollection(bookCollection));
         }
         return bookCollectionService.importBookCollections(collectionDTOS);
@@ -47,40 +48,6 @@ public class BookCollectionController {
         return bookCollectionService.importCollectionRelationship(relationshipDTOS);
     }
 
-    @GetMapping("/export")
-    public ResponseEntity<String> export() {
-        HttpHeaders responseHeaders = new HttpHeaders();
-        responseHeaders.add("Content-Type", "text/plain; charset=utf-8");
-        List<CreateBookCollectionDTO> collectionDTOS = bookCollectionService.exportAll();
-        StringBuilder csvBuilder = new StringBuilder();
-        csvBuilder.append("id,name,user_id");
-        for (CreateBookCollectionDTO collectionDTO : collectionDTOS) {
-            csvBuilder.append("\n")
-                    .append(collectionDTO.id())
-                    .append(',')
-                    .append(collectionDTO.name())
-                    .append(',')
-                    .append(collectionDTO.userId());
-        }
-        return new ResponseEntity<>(csvBuilder.toString(), responseHeaders, HttpStatus.OK);
-    }
-
-    @GetMapping("/export/relationships")
-    public ResponseEntity<String> exportRelationship() {
-        HttpHeaders responseHeaders = new HttpHeaders();
-        responseHeaders.add("Content-Type", "text/plain; charset=utf-8");
-        List<CreateCollectionRelationshipDTO> relationshipDTOS = bookCollectionService.exportAllRelationship();
-        StringBuilder csvBuilder = new StringBuilder();
-        csvBuilder.append("collection_id,book_id");
-        for (CreateCollectionRelationshipDTO relationshipDTO : relationshipDTOS) {
-            csvBuilder.append("\n")
-                    .append(relationshipDTO.collectionId())
-                    .append(',')
-                    .append(relationshipDTO.bookId());
-        }
-        return new ResponseEntity<>(csvBuilder.toString(), responseHeaders, HttpStatus.OK);
-    }
-
     @GetMapping
     public Iterable<BookCollectionDTO> getAll() {
         return bookCollectionService.getAllCollections();
@@ -92,42 +59,42 @@ public class BookCollectionController {
     }
 
     @GetMapping("/{id}")
-    public BookCollectionDTO getOne(@PathVariable UUID id) {
+    public BookCollectionDTO getOne(@PathVariable Long id) {
         return bookCollectionService.getCollectionById(id);
     }
 
     @PutMapping("/{id}")
-    public BookCollectionDTO updateCollection(@PathVariable UUID id) {
+    public BookCollectionDTO updateCollection(@PathVariable Long id) {
         return bookCollectionService.updateCollection(id);
     }
 
     @PutMapping("/{collection_id}/books/{book_id}")
-    public BookCollectionDTO updateBookOfCollection(@PathVariable UUID collection_id, @PathVariable UUID book_id) {
+    public BookCollectionDTO updateBookOfCollection(@PathVariable Long collection_id, @PathVariable Long book_id) {
         return bookCollectionService.updateBookOfCollection(collection_id, book_id);
     }
 
     @DeleteMapping("/{id}")
-    public void deleteCollection(@PathVariable UUID id) {
+    public void deleteCollection(@PathVariable Long id) {
         bookCollectionService.deleteCollection(id);
     }
 
     @DeleteMapping("/{collection_id}/{book_id}")
-    public void deleteBookOfCollection(@PathVariable UUID collection_id, @PathVariable UUID book_id) {
+    public void deleteBookOfCollection(@PathVariable Long collection_id, @PathVariable Long book_id) {
         bookCollectionService.deleteBookOfCollection(collection_id, book_id);
     }
 
     @GetMapping("/{book_id}")
-    public Iterable<BookCollectionDTO> getCollectionsWhereBookExist(@PathVariable UUID book_id) {
+    public Iterable<BookCollectionDTO> getCollectionsWhereBookExist(@PathVariable Long book_id) {
         return bookCollectionService.getCollectionsWhereBookExist(book_id);
     }
 
     @GetMapping("/{collection_id}/books")
-    public Iterable<BookDTO> getBooksOfCollection(@PathVariable UUID collection_id) {
+    public Iterable<BookDTO> getBooksOfCollection(@PathVariable Long collection_id) {
         return bookCollectionService.getBooksOfCollection(collection_id);
     }
 
     @PostMapping("/{collection_id}/books/{book_id}")
-    public BookCollectionDTO addBookToCollection(@PathVariable UUID collection_id, @PathVariable UUID book_id) {
+    public BookCollectionDTO addBookToCollection(@PathVariable Long collection_id, @PathVariable Long book_id) {
         return bookCollectionService.addBookToCollection(collection_id, book_id);
     }
 }

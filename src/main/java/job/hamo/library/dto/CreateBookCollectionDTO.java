@@ -5,7 +5,7 @@ import job.hamo.library.entity.User;
 
 import java.util.UUID;
 
-public record CreateBookCollectionDTO(UUID id, String name, UUID userId) {
+public record CreateBookCollectionDTO(Long id, String name, Long userId) {
 
     public static CreateBookCollectionDTO fromBookCollection(BookCollection bookCollection) {
         return new CreateBookCollectionDTO(bookCollection.getId(),

@@ -1,10 +1,8 @@
 package job.hamo.library.exception.handler;
 
 import job.hamo.library.exception.BookNotFoundInCollectionException;
-import job.hamo.library.exception.BookUUIDAlreadyExistsException;
-import job.hamo.library.exception.BookUUIDNotFoundException;
-import org.hibernate.exception.ConstraintViolationException;
-import org.springframework.dao.DataIntegrityViolationException;
+import job.hamo.library.exception.BookIdAlreadyExistsException;
+import job.hamo.library.exception.BookIdNotFoundException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,7 +14,7 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 @ControllerAdvice
 public class BookRestExceptionHandler extends ResponseEntityExceptionHandler {
 
-    @ExceptionHandler({ BookUUIDNotFoundException.class })
+    @ExceptionHandler({ BookIdNotFoundException.class })
     protected ResponseEntity<Object> handleNotFound(
       Exception ex, WebRequest request) {
         return handleExceptionInternal(ex, "Book not found", 
@@ -29,7 +27,7 @@ public class BookRestExceptionHandler extends ResponseEntityExceptionHandler {
           new HttpHeaders(), HttpStatus.NOT_FOUND, request);
     }
 
-    @ExceptionHandler({ BookUUIDAlreadyExistsException.class})
+    @ExceptionHandler({ BookIdAlreadyExistsException.class})
     public ResponseEntity<Object> handleAlreadyExistsRequest(
             Exception ex, WebRequest request) {
         return handleExceptionInternal(ex, "{\"errors\":{\"bookTitle\": \"Book already exists\"}}",

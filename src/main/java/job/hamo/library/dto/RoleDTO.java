@@ -4,7 +4,7 @@ import job.hamo.library.entity.Role;
 
 import java.util.UUID;
 
-public record RoleDTO(UUID id, String name) {
+public record RoleDTO(Long id, String name) {
 
     public static RoleDTO fromRole(Role role) {
         return new RoleDTO(role.getId(), role.getName());

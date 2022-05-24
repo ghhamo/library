@@ -1,6 +1,9 @@
 package job.hamo.library.entity;
 
 
+import org.apache.commons.lang3.builder.EqualsBuilder;
+import org.apache.commons.lang3.builder.HashCodeBuilder;
+
 import javax.persistence.*;
 import java.util.List;
 import java.util.UUID;
@@ -10,9 +13,8 @@ import java.util.UUID;
 public class BookList {
 
     @Id
-    @GeneratedValue
-    @Column(name = "id", updatable = false, nullable = false, columnDefinition = "BINARY(16)")
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.SEQUENCE)
+    private Long id;
 
     @Column(nullable = false, unique = true)
     private String name;
@@ -27,11 +29,11 @@ public class BookList {
             inverseJoinColumns = {@JoinColumn(name = "book_id")})
     private List<Book> books;
 
-    public UUID getId() {
+    public Long getId() {
         return id;
     }
 
-    public void setId(UUID id) {
+    public void setId(Long id) {
         this.id = id;
     }
 
@@ -57,15 +59,5 @@ public class BookList {
 
     public void setUser(User user) {
         this.user = user;
-    }
-
-    @Override
-    public String toString() {
-        return "BookList{" +
-                "id=" + id +
-                ", name='" + name + '\'' +
-                ", user=" + user +
-                ", books=" + books +
-                '}';
     }
 }

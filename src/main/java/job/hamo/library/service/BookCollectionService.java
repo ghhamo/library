@@ -6,18 +6,12 @@ import job.hamo.library.entity.BookCollection;
 import job.hamo.library.exception.*;
 import job.hamo.library.repository.BookRepository;
 import job.hamo.library.repository.BookCollectionRepository;
-import job.hamo.library.util.CSVParser;
-import job.hamo.library.util.UUIDUtil;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import javax.persistence.EntityManager;
-import javax.transaction.Transactional;
 import java.util.*;
-
-import static job.hamo.library.util.DataGenerator.randomString;
-
 
 @Service
 public class BookCollectionService {
@@ -29,26 +23,6 @@ public class BookCollectionService {
 
     @Autowired
     private EntityManager entityManager;
-
-    @Transactional
-    public List<CreateBookCollectionDTO> exportAll() {
-        List<BookCollection> all = bookCollectionRepository.findAll();
-        List<CreateBookCollectionDTO> result = new LinkedList<>();
-        for (BookCollection bookCollection : all) {
-            result.add(CreateBookCollectionDTO.fromBookCollection(bookCollection));
-        }
-        return result;
-    }
-
-    @Transactional
-    public List<CreateCollectionRelationshipDTO> exportAllRelationship() {
-        Set<Object[]> relationships = bookCollectionRepository.findAllRelationship();
-        List<CreateCollectionRelationshipDTO> result = new ArrayList<>();
-        for (Object[] relationship : relationships) {
-            result.add(CreateCollectionRelationshipDTO.makeRelationship(relationship[0], relationship[1]));
-        }
-        return result;
-    }
 
     @Transactional
     public List<CreateBookCollectionDTO> importBookCollections(Iterable<CreateBookCollectionDTO> collections) {
@@ -87,10 +61,10 @@ public class BookCollectionService {
         return BookCollectionDTO.mapCollectionListToCollectionDtoList(collections);
     }
 
-    public Iterable<BookDTO> getBooksOfCollection(UUID collection_id) {
+    public Iterable<BookDTO> getBooksOfCollection(Long collection_id) {
         Objects.requireNonNull(collection_id);
         BookCollection bookCollection = bookCollectionRepository.findById(collection_id)
-                .orElseThrow(() -> new BookCollectionUUIDNotFoundException(collection_id));
+                .orElseThrow(() -> new BookCollectionIdNotFoundException(collection_id));
         return BookDTO.mapBookSetToBookDto(bookCollection.getBooks());
     }
 
@@ -99,15 +73,16 @@ public class BookCollectionService {
         Objects.requireNonNull(relationshipDTO.bookId());
         Objects.requireNonNull(relationshipDTO.collectionId());
         BookCollection bookCollection = bookCollectionRepository.findById(relationshipDTO.collectionId())
-                .orElseThrow(() -> new BookCollectionUUIDNotFoundException(relationshipDTO.collectionId()));
+                .orElseThrow(() -> new BookCollectionIdNotFoundException(relationshipDTO.collectionId()));
         Book book = bookRepository.findById(relationshipDTO.bookId()).orElseThrow(() ->
-                new BookListUUIDNotFoundException(relationshipDTO.bookId()));
+                new BookListIdNotFoundException(relationshipDTO.bookId()));
         entityManager.createNativeQuery("INSERT INTO collection_books (collection_id, book_id) VALUES(?, ?)")
-                .setParameter(1, UUIDUtil.asBytes(bookCollection.getId()))
-                .setParameter(2, UUIDUtil.asBytes(book.getId()))
+                .setParameter(1, bookCollection.getId())
+                .setParameter(2, book.getId())
                 .executeUpdate();
     }
 
+    @Transactional
     public BookCollectionDTO create(CreateBookCollectionDTO collectionDto) {
         Objects.requireNonNull(collectionDto);
         Objects.requireNonNull(collectionDto.name());
@@ -115,12 +90,12 @@ public class BookCollectionService {
         if (collectionDto.id() != null) {
             boolean existsById = bookCollectionRepository.existsById(collectionDto.id());
             if (existsById) {
-                throw new BookCollectionUUIDAlreadyExistsException(collectionDto.id());
+                throw new BookCollectionIdAlreadyExistsException(collectionDto.id());
             }
             entityManager.createNativeQuery("INSERT INTO book_collection (id, name, user_id) VALUES (?,?,?)")
-                    .setParameter(1, UUIDUtil.asBytes(collectionDto.id()))
+                    .setParameter(1, collectionDto.id())
                     .setParameter(2, collectionDto.name())
-                    .setParameter(3, UUIDUtil.asBytes(collectionDto.userId()))
+                    .setParameter(3, collectionDto.userId())
                     .executeUpdate();
         } else {
             bookCollectionRepository.save(CreateBookCollectionDTO.toBookCollection(collectionDto));
@@ -130,46 +105,45 @@ public class BookCollectionService {
         return BookCollectionDTO.fromBookCollection(savedBookCollection);
     }
 
-    public BookCollectionDTO getCollectionById(UUID id) {
+    public BookCollectionDTO getCollectionById(Long id) {
         Objects.requireNonNull(id);
-        BookCollection bookCollection = bookCollectionRepository.findById(id).orElseThrow(() -> new BookCollectionUUIDNotFoundException(id));
+        BookCollection bookCollection = bookCollectionRepository.findById(id).orElseThrow(() -> new BookCollectionIdNotFoundException(id));
         return BookCollectionDTO.fromBookCollection(bookCollection);
     }
 
-    public void deleteCollection(UUID id) {
+    public void deleteCollection(Long id) {
         Objects.requireNonNull(id);
         if (bookCollectionRepository.existsById(id)) {
             bookCollectionRepository.deleteById(id);
-        } else throw new BookCollectionUUIDNotFoundException(id);
+        } else throw new BookCollectionIdNotFoundException(id);
     }
 
-    public void deleteBookOfCollection(UUID collectionId, UUID bookId) {
+    public void deleteBookOfCollection(Long collectionId, Long bookId) {
         Objects.requireNonNull(collectionId);
         Objects.requireNonNull(bookId);
         BookCollection bookCollection = bookCollectionRepository.findById(collectionId).orElseThrow(() ->
-                new BookCollectionUUIDNotFoundException(collectionId));
-        Book book = bookRepository.findById(bookId).orElseThrow(() -> new BookUUIDNotFoundException(bookId));
+                new BookCollectionIdNotFoundException(collectionId));
+        Book book = bookRepository.findById(bookId).orElseThrow(() -> new BookIdNotFoundException(bookId));
         bookCollection.getBooks().remove(book);
         bookCollectionRepository.save(bookCollection);
     }
 
-    public BookCollectionDTO updateCollection(UUID id) {
+    public BookCollectionDTO updateCollection(Long id) {
         Objects.requireNonNull(id);
-        BookCollection bookCollection = bookCollectionRepository.findById(id).orElseThrow(() -> new BookCollectionUUIDNotFoundException(id));
-        bookCollection.setName(randomString(12));
+        BookCollection bookCollection = bookCollectionRepository.findById(id).orElseThrow(() -> new BookCollectionIdNotFoundException(id));
+        bookCollection.setName("collection");
         BookCollection changedBookCollection = bookCollectionRepository.save(bookCollection);
         return BookCollectionDTO.fromBookCollection(changedBookCollection);
     }
 
-    public BookCollectionDTO updateBookOfCollection(UUID collectionId, UUID bookId) {
+    public BookCollectionDTO updateBookOfCollection(Long collectionId, Long bookId) {
         Objects.requireNonNull(collectionId);
         Objects.requireNonNull(bookId);
-        BookCollection bookCollection = bookCollectionRepository.findById(collectionId).orElseThrow(() -> new BookCollectionUUIDNotFoundException(collectionId));
-        Book book = bookRepository.findById(bookId).orElseThrow(() -> new BookUUIDNotFoundException(bookId));
+        BookCollection bookCollection = bookCollectionRepository.findById(collectionId).orElseThrow(() -> new BookCollectionIdNotFoundException(collectionId));
+        Book book = bookRepository.findById(bookId).orElseThrow(() -> new BookIdNotFoundException(bookId));
         if (bookCollection.getBooks().contains(book)) {
-            book.setTitle(randomString(12));
-            book.getGenre().setName(randomString(12));
-            book.getAuthor().setName(randomString(12));
+            book.setTitle("title");
+            book.getGenre().setName("genre");
             bookRepository.save(book);
         } else {
             throw new BookNotFoundInCollectionException();
@@ -178,35 +152,25 @@ public class BookCollectionService {
         return BookCollectionDTO.fromBookCollection(changedBookCollection);
     }
 
-    public Iterable<BookCollectionDTO> getCollectionsWhereBookExist(UUID id) {
+    public Iterable<BookCollectionDTO> getCollectionsWhereBookExist(Long id) {
         Objects.requireNonNull(id);
-        Book book = bookRepository.findById(id).orElseThrow(() -> new BookUUIDNotFoundException(id));
+        Book book = bookRepository.findById(id).orElseThrow(() -> new BookIdNotFoundException(id));
         Iterable<BookCollection> collections = bookCollectionRepository.findAll();
         return BookCollectionDTO.mapCollectionEntityListToCollectionDtoList(collections, book);
     }
 
-    public BookCollectionDTO addBookToCollection(UUID collectionId, UUID bookId) {
+    public BookCollectionDTO addBookToCollection(Long collectionId, Long bookId) {
         Objects.requireNonNull(collectionId);
         Objects.requireNonNull(bookId);
-        Book book = bookRepository.findById(bookId).orElseThrow(() -> new BookUUIDNotFoundException(bookId));
+        Book book = bookRepository.findById(bookId).orElseThrow(() -> new BookIdNotFoundException(bookId));
         BookCollection bookCollection = bookCollectionRepository.findById(collectionId)
-                .orElseThrow(() -> new BookCollectionUUIDNotFoundException(collectionId));
+                .orElseThrow(() -> new BookCollectionIdNotFoundException(collectionId));
         if (bookCollection.getBooks().contains(book)) {
-            throw new BookUUIDAlreadyExistsException(bookId);
+            throw new BookIdAlreadyExistsException(bookId);
         } else {
             bookCollection.getBooks().add(book);
         }
         BookCollection savedBookCollection = bookCollectionRepository.save(bookCollection);
         return BookCollectionDTO.fromBookCollection(savedBookCollection);
-    }
-
-    public BookCollection csvToCollection(String[] collectionRow) {
-        BookCollection bookCollection = new BookCollection();
-        bookCollection.setId(UUID.fromString(collectionRow[0]));
-        bookCollection.setName(collectionRow[1]);
-        User user = new User();
-        user.setId(UUID.fromString(collectionRow[2]));
-        bookCollection.setUser(user);
-        return bookCollection;
     }
 }

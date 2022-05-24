@@ -1,31 +1,31 @@
 package job.hamo.library.entity;
 
 import javax.persistence.*;
-import java.util.UUID;
+import java.io.Serializable;
 
 @Entity
 public class Rating {
 
+
     @Id
-    @GeneratedValue
-    @Column(name = "id", updatable = false, nullable = false, columnDefinition = "BINARY(16)")
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.SEQUENCE)
+    private Long id;
 
     private int rating;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "book_id")
+    @JoinColumn(name = "isbn", referencedColumnName = "isbn")
     private Book book;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private User user;
 
-    public UUID getId() {
+    public Long getId() {
         return id;
     }
 
-    public void setId(UUID id) {
+    public void setId(Long id) {
         this.id = id;
     }
 
@@ -51,15 +51,5 @@ public class Rating {
 
     public void setUser(User user) {
         this.user = user;
-    }
-
-    @Override
-    public String toString() {
-        return "Rating{" +
-                "id=" + id +
-                ", rating=" + rating +
-                ", book=" + book +
-                ", user=" + user +
-                '}';
     }
 }

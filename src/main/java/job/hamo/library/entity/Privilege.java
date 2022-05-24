@@ -8,9 +8,8 @@ import java.util.UUID;
 public class Privilege {
 
     @Id
-    @GeneratedValue
-    @Column(name = "id", updatable = false, nullable = false, columnDefinition = "BINARY(16)")
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.SEQUENCE)
+    private Long id;
 
     private String name;
 
@@ -33,14 +32,5 @@ public class Privilege {
 
     public void setRoles(Set<Role> roles) {
         this.roles = roles;
-    }
-
-    @Override
-    public String toString() {
-        return "Privilege{" +
-                "id=" + id +
-                ", name='" + name + '\'' +
-                ", roles=" + roles +
-                '}';
     }
 }

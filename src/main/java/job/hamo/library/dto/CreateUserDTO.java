@@ -1,28 +1,13 @@
 package job.hamo.library.dto;
 
-import job.hamo.library.entity.Role;
-import job.hamo.library.entity.User;
+import java.util.Objects;
 
-import java.util.UUID;
+public record CreateUserDTO(Long id, String location, int age) {
 
-public record CreateUserDTO(UUID id, String name, String surname, String email,
-                            String password, boolean enabled, String roleName) {
-
-
-    public static CreateUserDTO fromUser(User user) {
-        return new CreateUserDTO(user.getId(), user.getName(), user.getSurname(),
-                user.getEmail(), user.getPassword(), user.isEnabled(), user.getRole().getName());
-    }
-
-
-    public static User toUser(CreateUserDTO createUserDTO, Role role) {
-        User user = new User();
-        user.setName(createUserDTO.name);
-        user.setSurname(createUserDTO.surname);
-        user.setEmail(createUserDTO.email);
-        user.setPassword(createUserDTO.password);
-        user.setEnabled(createUserDTO.enabled);
-        user.setRole(role);
-        return user;
+    public static CreateUserDTO toCreateUserDTO(String[] row) {
+        if (Objects.equals(row[2], "NULL")) {
+            return new CreateUserDTO(Long.parseLong(row[0]), row[1], 0);
+        }
+        return new CreateUserDTO(Long.parseLong(row[0]), row[1], Integer.parseInt(row[2]));
     }
 }

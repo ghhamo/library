@@ -1,11 +1,9 @@
 package job.hamo.library.exception.handler;
 
 import job.hamo.library.exception.UserEmailOrPasswordMismatchException;
-import job.hamo.library.exception.UserUUIDAlreadyExistsException;
-import job.hamo.library.exception.UserUUIDNotFoundException;
+import job.hamo.library.exception.UserIdAlreadyExistsException;
+import job.hamo.library.exception.UserIdNotFoundException;
 import job.hamo.library.exception.UserWithEmailAlreadyExistsException;
-import org.hibernate.exception.ConstraintViolationException;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,7 +15,7 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 @ControllerAdvice
 public class UserRestExceptionHandler extends ResponseEntityExceptionHandler {
 
-    @ExceptionHandler({UserUUIDNotFoundException.class})
+    @ExceptionHandler({UserIdNotFoundException.class})
     protected ResponseEntity<Object> handleNotFound(
             Exception ex, WebRequest request) {
         return handleExceptionInternal(ex, "{\"errors\":{\"userEmail\": \"User not found\"}}",
@@ -36,7 +34,7 @@ public class UserRestExceptionHandler extends ResponseEntityExceptionHandler {
                 new HttpHeaders(), HttpStatus.BAD_REQUEST, request);
     }
 
-    @ExceptionHandler({UserUUIDAlreadyExistsException.class})
+    @ExceptionHandler({UserIdAlreadyExistsException.class})
     public  ResponseEntity<Object> handleUUIDAlreadyExistsRequest(Exception ex, WebRequest request) {
         return handleExceptionInternal(ex, "{\"errors\":{\"userId\": \"User with id already exists \"}}",
                 new HttpHeaders(), HttpStatus.BAD_REQUEST, request);

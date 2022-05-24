@@ -1,40 +1,42 @@
 package job.hamo.library.entity;
 
 import javax.persistence.*;
-import java.util.UUID;
 
 @Entity
-public class BookImage {
+@Table(
+        uniqueConstraints =
+        @UniqueConstraint(columnNames = {"book_id", "image_size"})
+)
+public class File {
 
     @Id
-    @GeneratedValue
-    @Column(name = "id", updatable = false, nullable = false, columnDefinition = "BINARY(16)")
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.SEQUENCE)
+    private Long id;
 
-    @Column(unique = true, nullable = false)
-    private String name;
+    @Column(unique = true)
+    private String path;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "book_id")
     private Book book;
 
-    @Column(nullable = false)
+    @Column(nullable = false, name = "image_size")
     private String imageSize;
 
-    public UUID getId() {
+    public Long getId() {
         return id;
     }
 
-    public void setId(UUID id) {
+    public void setId(Long id) {
         this.id = id;
     }
 
-    public String getName() {
-        return name;
+    public String getPath() {
+        return path;
     }
 
-    public void setName(String name) {
-        this.name = name;
+    public void setPath(String path) {
+        this.path = path;
     }
 
     public String getImageSize() {

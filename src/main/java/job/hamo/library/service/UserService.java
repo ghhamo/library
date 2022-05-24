@@ -2,24 +2,26 @@ package job.hamo.library.service;
 
 import job.hamo.library.SetupDataLoader;
 import job.hamo.library.dto.CreateUserDTO;
+import job.hamo.library.dto.LocationDTO;
 import job.hamo.library.dto.RoleDTO;
-import job.hamo.library.dto.UserDTO;
 import job.hamo.library.entity.*;
 import job.hamo.library.exception.*;
 import job.hamo.library.repository.*;
-import job.hamo.library.util.UUIDUtil;
+import job.hamo.library.util.CsvParser;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.persistence.EntityManager;
-import javax.transaction.Transactional;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -41,42 +43,43 @@ public class UserService {
     @Autowired
     private JwtEncoder encoder;
 
-    @Transactional
-    public List<CreateUserDTO> exportAll() {
-        List<User> all = userRepository.findAll();
-        List<CreateUserDTO> result = new LinkedList<>();
-        for (User user : all) {
-            result.add(CreateUserDTO.fromUser(user));
-        }
-        return result;
-    }
+    @Autowired
+    private LocationService locationService;
 
-    @Transactional
-    public List<RoleDTO> exportAllRoles() {
-        List<Role> all = roleRepository.findAll();
-        List<RoleDTO> result = new LinkedList<>();
-        for (Role role : all) {
-            result.add(RoleDTO.fromRole(role));
-        }
-        return result;
-    }
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
-    @Transactional
-    public List<CreateUserDTO> importUsers(List<CreateUserDTO> userDTOS) {
-        List<CreateUserDTO> invalidDTOs = new LinkedList<>();
-        for (CreateUserDTO userDTO : userDTOS) {
-            if (userDTO == null) {
-                continue;
+    @Autowired
+    private CsvParser csvParser;
+
+    private Role userRole;
+
+
+    public void importUsers(MultipartFile file) {
+        List<String[]> rows = csvParser.csvParseToString(file, "user");
+        List<User> users = new ArrayList<>();
+        userRole = roleRepository.getByName(SetupDataLoader.ROLE_USER);
+        for (String[] row : rows) {
+            String[] location = row[1].split(",");
+            LocationDTO locationDTO = locationService.stringToLocation(location);
+            User user = new User();
+            user.setId(Long.parseLong(row[0]));
+            user.setCity(locationDTO.city());
+            user.setCountry(locationDTO.country());
+            user.setRegion(locationDTO.region());
+            user.setRole(userRole);
+            user.setEnabled(true);
+            if (row[2].equals("NULL")) {
+                user.setAge(0);
+            } else {
+                user.setAge(Integer.parseInt(row[2]));
             }
-            try {
-                createUser(userDTO);
-            } catch (ValidationException validationException) {
-                invalidDTOs.add(userDTO);
-            }
+            users.add(user);
         }
-        return invalidDTOs;
+        userRepository.saveAll(users);
     }
 
+    @Transactional
     public List<RoleDTO> importRoles(Iterable<RoleDTO> roleDTOS) {
         List<RoleDTO> invalidDTOs = new LinkedList<>();
         for (RoleDTO roleDTO : roleDTOS) {
@@ -98,10 +101,10 @@ public class UserService {
         if (roleDTO.id() != null) {
             boolean existsById = roleRepository.existsById(roleDTO.id());
             if (existsById) {
-                throw new RoleUUIDAlreadyExistsException(roleDTO.id());
+                throw new RoleIdAlreadyExistsException(roleDTO.id());
             }
             entityManager.createNativeQuery("INSERT INTO role (id, name) VALUES (?,?)")
-                    .setParameter(1, UUIDUtil.asBytes(roleDTO.id()))
+                    .setParameter(1, roleDTO.id())
                     .setParameter(2, roleDTO.name())
                     .executeUpdate();
         } else {
@@ -110,50 +113,7 @@ public class UserService {
     }
 
     public void createUser(CreateUserDTO createUserDto) {
-        validateUser(createUserDto);
-        Optional<User> userFromDB = userRepository.findByEmail(createUserDto.email());
-        if (userFromDB.isPresent()) {
-            throw new UserWithEmailAlreadyExistsException();
-        }
-        Role role = roleRepository.findByName(createUserDto.roleName()).orElseThrow(() ->
-                new RoleNameNotFoundException(createUserDto.roleName()));
-        if (createUserDto.id() != null) {
-            boolean existsById = roleRepository.existsById(createUserDto.id());
-            if (existsById) {
-                throw new UserUUIDAlreadyExistsException(createUserDto.id());
-            }
-            entityManager.createNativeQuery("INSERT INTO user (id, name, surname, email, password, enabled, role_id) VALUES (?,?,?,?,?,?,?)")
-                    .setParameter(1, UUIDUtil.asBytes(createUserDto.id()))
-                    .setParameter(2, createUserDto.name())
-                    .setParameter(3, createUserDto.surname())
-                    .setParameter(4, createUserDto.email())
-                    .setParameter(5, createUserDto.password())
-                    .setParameter(6, createUserDto.enabled())
-                    .setParameter(7, UUIDUtil.asBytes(role.getId()))
-                    .executeUpdate();
-        } else {
-            userRepository.save(CreateUserDTO.toUser(createUserDto, role));
-        }
-    }
 
-    private void validateUser(CreateUserDTO userDto) {
-        Objects.requireNonNull(userDto);
-        Objects.requireNonNull(userDto.name());
-        Objects.requireNonNull(userDto.surname());
-        Objects.requireNonNull(userDto.email());
-        Objects.requireNonNull(userDto.password());
-    }
-
-    public void registerNewEditorAccount(CreateUserDTO editorDto) {
-        validateUser(editorDto);
-        Optional<User> userFromDB = userRepository.findByEmail(editorDto.email());
-        if (userFromDB.isPresent()) {
-            throw new UserWithEmailAlreadyExistsException();
-        }
-        Role role = roleRepository.getByName(SetupDataLoader.ROLE_EDITOR);
-        User editor = CreateUserDTO.toUser(editorDto, role);
-        editor.setRole(role);
-        userRepository.save(editor);
     }
 
     public String sign_in(Authentication authentication) {
@@ -170,40 +130,5 @@ public class UserService {
                 .claim("scope", scope)
                 .build();
         return this.encoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
-    }
-
-    public void createNewAdmin(CreateUserDTO newAdmin, UUID adminId) {
-        Objects.requireNonNull(adminId);
-        validateUser(newAdmin);
-        User oldAdmin = userRepository.findById(adminId).orElseThrow(() ->
-                new UserUUIDNotFoundException(adminId));
-        if (!oldAdmin.getRole().getName().equals(SetupDataLoader.ROLE_ADMIN)) {
-            throw new NotPermissionException();
-        }
-        Role role = roleRepository.getByName(SetupDataLoader.ROLE_ADMIN);
-        User admin = CreateUserDTO.toUser(newAdmin, role);
-        admin.setRole(role);
-        userRepository.save(admin);
-    }
-
-    public Role csvToRole(String[] roleRow) {
-        Role role = new Role();
-        role.setId(UUID.fromString(roleRow[0]));
-        role.setName(roleRow[1]);
-        return role;
-    }
-
-    @Transactional
-    public User csvToUser(String[] userRow) {
-        User user = new User();
-        user.setId(UUID.fromString(userRow[0]));
-        user.setEmail(userRow[1]);
-        user.setEnabled(true);
-        user.setName(userRow[3]);
-        user.setPassword(userRow[4]);
-        user.setSurname(userRow[5]);
-        Role role = roleRepository.getByName(userRow[6]);
-        user.setRole(role);
-        return user;
     }
 }

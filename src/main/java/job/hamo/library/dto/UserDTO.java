@@ -5,8 +5,8 @@ import job.hamo.library.entity.User;
 
 import java.util.UUID;
 
-public record UserDTO(UUID id, String name, String surname, String email,
-                      String password, boolean enabled, UUID roleId) {
+public record UserDTO(Long id, String name, String surname, String email,
+                      String password, boolean enabled, Long roleId) {
 
     public static UserDTO fromUser(User user) {
         return new UserDTO(user.getId(), user.getName(), user.getSurname(),

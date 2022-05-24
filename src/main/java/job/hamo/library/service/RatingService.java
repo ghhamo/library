@@ -6,12 +6,13 @@ import job.hamo.library.exception.*;
 import job.hamo.library.repository.BookRepository;
 import job.hamo.library.repository.RatingRepository;
 import job.hamo.library.repository.UserRepository;
-import job.hamo.library.util.UUIDUtil;
+import job.hamo.library.util.CsvParser;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
-import javax.persistence.EntityManager;
-import javax.transaction.Transactional;
 import java.util.*;
 
 @Service
@@ -27,73 +28,49 @@ public class RatingService {
     private RatingRepository ratingRepository;
 
     @Autowired
-    private EntityManager entityManager;
+    private CsvParser csvParser;
 
-
-    @Transactional
-    public List<CreateRatingDTO> exportAll() {
-        List<Rating> all = ratingRepository.findAll();
-        List<CreateRatingDTO> result = new LinkedList<>();
-        for (Rating rating : all) {
-            result.add(CreateRatingDTO.fromRating(rating));
-        }
-        return result;
-    }
-
-    @Transactional
-    public List<CreateRatingDTO> importRatings(Iterable<CreateRatingDTO> ratingDTOS) {
-        List<CreateRatingDTO> invalidDTOs = new LinkedList<>();
-        for (CreateRatingDTO createRatingDTO : ratingDTOS) {
-            if (createRatingDTO == null) {
+    /*
+    public void importRatings(MultipartFile file) {
+        List<String[]> rows = csvParser.csvParseToString(file, "rating");
+        List<Rating> ratings = new ArrayList<>();
+        Long userMaxId = userRepository.findMaxId();
+        for (String[] row : rows) {
+            Long userId = Long.parseLong(row[0]);
+            if (userId > userMaxId) {
                 continue;
             }
-            try {
-                create(createRatingDTO);
-            } catch (ValidationException validationException) {
-                invalidDTOs.add(createRatingDTO);
-            }
+            Rating rating = new Rating();
+            User user = new User();
+            user.setId(userId);
+            rating.setUser(user);
+            Book book = new Book();
+            book.setIsbn(row[1]);
+            rating.setBook(book);
+            rating.setRating(Integer.parseInt(row[2]));
+            ratings.add(rating);
         }
-        return invalidDTOs;
-    }
+        ratingRepository.saveAll(ratings);
+    }*/
 
     public CreateRatingDTO create(CreateRatingDTO createRatingDTO) {
         Objects.requireNonNull(createRatingDTO);
-        Objects.requireNonNull(createRatingDTO.bookId());
-        Objects.requireNonNull(createRatingDTO.userId());
-        User user = userRepository.findById(createRatingDTO.userId()).orElseThrow(() ->
-                new UserUUIDNotFoundException(createRatingDTO.userId()));
-        Book book = bookRepository.findById(createRatingDTO.bookId()).orElseThrow(() ->
-                new BookUUIDNotFoundException(createRatingDTO.bookId()));
+        Objects.requireNonNull(createRatingDTO.getIsbn());
+        Objects.requireNonNull(createRatingDTO.getUserId());
+        User user = userRepository.findById(createRatingDTO.getId()).orElseThrow(() ->
+                new UserIdNotFoundException(createRatingDTO.getId()));
+        Book book = bookRepository.findByIsbn(createRatingDTO.getIsbn()).orElseThrow(() ->
+                new BookISBNNotFoundException(createRatingDTO.getIsbn()));
         Rating rating;
-        if (createRatingDTO.id() != null) {
-            boolean existsById = ratingRepository.existsById(createRatingDTO.id());
+        if (createRatingDTO.getId() != null) {
+            boolean existsById = ratingRepository.existsById(createRatingDTO.getId());
             if (existsById) {
-                throw new RatingUUIDAlreadyExistsException(createRatingDTO.id());
+                throw new RatingIdAlreadyExistsException(createRatingDTO.getId());
             }
-            entityManager.createNativeQuery("INSERT INTO rating (id, rating, book_id, user_id) VALUES (?,?,?,?)")
-                    .setParameter(1, UUIDUtil.asBytes(createRatingDTO.id()))
-                    .setParameter(2, createRatingDTO.rating())
-                    .setParameter(3, UUIDUtil.asBytes(book.getId()))
-                    .setParameter(4, UUIDUtil.asBytes(user.getId()))
-                    .executeUpdate();
-            rating = ratingRepository.getById(createRatingDTO.id());
+            rating = ratingRepository.getById(createRatingDTO.getId());
         } else {
-            rating = ratingRepository.save(CreateRatingDTO.toRating(createRatingDTO));
+            rating = ratingRepository.save(CreateRatingDTO.toRating(createRatingDTO, book, user));
         }
         return CreateRatingDTO.fromRating(rating);
-    }
-
-
-    public Rating csvToRating(String[] ratingRow) {
-        Rating rating = new Rating();
-        rating.setId(UUID.fromString(ratingRow[0]));
-        rating.setRating(Integer.parseInt(ratingRow[1]));
-        Book book = new Book();
-        book.setId(UUID.fromString(ratingRow[2]));
-        rating.setBook(book);
-        User user = new User();
-        user.setId(UUID.fromString(ratingRow[3]));
-        rating.setUser(user);
-        return rating;
     }
 }

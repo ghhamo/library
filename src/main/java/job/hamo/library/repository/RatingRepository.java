@@ -6,10 +6,9 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 
 @Repository
-public interface RatingRepository extends JpaRepository<Rating, UUID> {
-    Optional<Rating> findById(UUID id);
+public interface RatingRepository extends JpaRepository<Rating, Long> {
+    Optional<Rating> findById(Long id);
     Set<Rating> findByBookId(Long id);
 }

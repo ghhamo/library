@@ -1,9 +1,7 @@
 package job.hamo.library.exception.handler;
 
-import job.hamo.library.exception.GenreUUIDAlreadyExistsException;
-import job.hamo.library.exception.GenreUUIDNotFoundException;
-import org.hibernate.exception.ConstraintViolationException;
-import org.springframework.dao.DataIntegrityViolationException;
+import job.hamo.library.exception.GenreIdAlreadyExistsException;
+import job.hamo.library.exception.GenreIdNotFoundException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,14 +12,14 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 
 @ControllerAdvice
 public class GenreRestExceptionHandler extends ResponseEntityExceptionHandler {
-    @ExceptionHandler({ GenreUUIDNotFoundException.class })
+    @ExceptionHandler({ GenreIdNotFoundException.class })
     protected ResponseEntity<Object> handleNotFound(
             Exception ex, WebRequest request) {
         return handleExceptionInternal(ex, "Genre not found",
                 new HttpHeaders(), HttpStatus.NOT_FOUND, request);
     }
 
-    @ExceptionHandler({ GenreUUIDAlreadyExistsException.class})
+    @ExceptionHandler({ GenreIdAlreadyExistsException.class})
     public ResponseEntity<Object> handleAlreadyExistsRequest(
             Exception ex, WebRequest request) {
         return handleExceptionInternal(ex, "{\"errors\":{\"genre\": \"genre with UUID already exists\"}}",

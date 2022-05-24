@@ -4,9 +4,8 @@ import job.hamo.library.entity.Author;
 
 import java.util.HashSet;
 import java.util.Set;
-import java.util.UUID;
 
-public record AuthorDTO(UUID id, String name) {
+public record AuthorDTO(Long id, String name) {
 
     public static AuthorDTO fromAuthor(Author authorEntity) {
         return new AuthorDTO(authorEntity.getId(), authorEntity.getName());

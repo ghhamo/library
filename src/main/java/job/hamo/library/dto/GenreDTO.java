@@ -6,7 +6,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
-public record GenreDTO(UUID id, String name) {
+public record GenreDTO(Long id, String name) {
 
     public static GenreDTO fromGenre(Genre genre) {
         return new GenreDTO(genre.getId(), genre.getName());

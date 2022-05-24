@@ -12,6 +12,7 @@ import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
+import javax.persistence.EntityManager;
 import javax.transaction.Transactional;
 import java.util.*;
 
@@ -24,6 +25,9 @@ public class SetupDataLoader implements ApplicationListener<ContextRefreshedEven
     public static final String ROLE_ADMIN = "ROLE_ADMIN";
 
     boolean alreadySetup = false;
+
+    @Autowired
+    private EntityManager entityManager;
 
     @Autowired
     private UserRepository userRepository;
@@ -47,18 +51,32 @@ public class SetupDataLoader implements ApplicationListener<ContextRefreshedEven
         createRoleIfNotFound(ROLE_ADMIN, Collections.emptySet());
 
         Role adminRoleFromDB = roleRepository.findByName(ROLE_ADMIN).orElseThrow(IllegalArgumentException::new);
-        User admin = new User();
-        admin.setEmail("admin@admin.com");
-        Optional<User> adminFromDB = userRepository.findByEmail(admin.getEmail());
+
+        String email = "admin@admin.com";
+        Optional<User> adminFromDB = userRepository.findByEmail(email);
         if (adminFromDB.isPresent()) {
             return;
         }
-        admin.setName("Admin");
-        admin.setSurname("Admin");
-        admin.setPassword(passwordEncoder.encode("admin"));
-        admin.setRole(adminRoleFromDB);
-        admin.setEnabled(true);
-        userRepository.save(admin);
+        String sql = "INSERT INTO user (id, name, surname, email, password, enabled, role_id, age, city, region, country) VALUES (?,?,?,?,?,?,?,?,?,?,?)";
+        String name = "Admin";
+        String surname = "Admin";
+        String city = "Admin";
+        String region = "Admin";
+        String country = "Admin";
+        String password = passwordEncoder.encode("admin");
+        entityManager.createNativeQuery(sql)
+                .setParameter(1, Long.MAX_VALUE)
+                .setParameter(2, name)
+                .setParameter(3, surname)
+                .setParameter(4, email)
+                .setParameter(5, password)
+                .setParameter(6, true)
+                .setParameter(7, adminRoleFromDB.getId())
+                .setParameter(8, 432)
+                .setParameter(9, city)
+                .setParameter(10, region)
+                .setParameter(11, country)
+                .executeUpdate();
         alreadySetup = true;
     }
 
@@ -76,7 +94,6 @@ public class SetupDataLoader implements ApplicationListener<ContextRefreshedEven
 
     @Transactional
     void createRoleIfNotFound(String name, Set<Privilege> privileges) {
-        Role optionalRole = null;
         Role role = new Role();
         Optional<Role> roleFromDB = roleRepository.findByName(name);
         if (roleFromDB.isEmpty()) {

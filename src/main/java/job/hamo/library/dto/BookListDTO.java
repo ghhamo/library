@@ -7,7 +7,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
-public record BookListDTO(UUID id, String name) {
+public record BookListDTO(Long id, String name) {
 
     public static BookListDTO fromBookList(BookList bookList) {
        return new BookListDTO(bookList.getId(), bookList.getName());

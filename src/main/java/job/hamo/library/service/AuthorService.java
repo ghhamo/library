@@ -1,22 +1,17 @@
 package job.hamo.library.service;
 
-import job.hamo.library.entity.Author;
-import job.hamo.library.entity.Book;
-import job.hamo.library.exception.AuthorUUIDAlreadyExistsException;
-import job.hamo.library.exception.AuthorUUIDNotFoundException;
-import job.hamo.library.exception.ValidationException;
-import job.hamo.library.repository.AuthorRepository;
 import job.hamo.library.dto.AuthorDTO;
 import job.hamo.library.dto.BookDTO;
-import job.hamo.library.util.UUIDUtil;
-import org.springframework.beans.factory.annotation.Autowired;
+import job.hamo.library.entity.Author;
+import job.hamo.library.entity.Book;
+import job.hamo.library.exception.AuthorIdAlreadyExistsException;
+import job.hamo.library.exception.AuthorIdNotFoundException;
+import job.hamo.library.repository.AuthorRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import javax.persistence.EntityManager;
-import javax.transaction.Transactional;
 import java.util.*;
-
-import static job.hamo.library.util.DataGenerator.randomString;
 
 @Service
 public class AuthorService {
@@ -27,49 +22,31 @@ public class AuthorService {
     @Autowired
     private EntityManager entityManager;
 
-    @Transactional
-    public List<AuthorDTO> exportAll() {
-        List<Author> all = authorRepository.findAll();
-        List<AuthorDTO> result = new LinkedList<>();
-        for (Author author : all) {
-            result.add(AuthorDTO.fromAuthor(author));
+    public Map<String, Author> authorsMapToMap(Collection<Author> list) {
+        Map<String, Author> authors = new HashMap<>();
+        for (Author author : list) {
+            authors.put(author.getName().toLowerCase(), author);
         }
-        return result;
+        return authors;
     }
 
-    @Transactional
-    public List<AuthorDTO> importAuthors(Iterable<AuthorDTO> authorDTOS) {
-        List<AuthorDTO> invalidDTOs = new LinkedList<>();
-        for (AuthorDTO createAuthorDTO : authorDTOS) {
-            if (createAuthorDTO == null) {
-                continue;
-            }
-            try {
-                create(createAuthorDTO);
-            } catch (ValidationException validationException) {
-                invalidDTOs.add(createAuthorDTO);
-            }
-        }
-        return invalidDTOs;
-    }
-
-    public AuthorDTO getAuthorById(UUID id) {
+    public AuthorDTO getAuthorById(Long id) {
         Objects.requireNonNull(id);
-        Author author = authorRepository.findById(id).orElseThrow(() -> new AuthorUUIDNotFoundException(id));
+        Author author = authorRepository.findById(id).orElseThrow(() -> new AuthorIdNotFoundException(id));
         return AuthorDTO.fromAuthor(author);
 
     }
 
-    public void deleteAuthor(UUID id) {
+    public void deleteAuthor(Long id) {
         Objects.requireNonNull(id);
         if (authorRepository.existsById(id)) {
             authorRepository.deleteById(id);
-        } else throw new AuthorUUIDNotFoundException(id);
+        } else throw new AuthorIdNotFoundException(id);
     }
 
-    public Iterable<BookDTO> getBooksOfAuthor(UUID id) {
+    public Iterable<BookDTO> getBooksOfAuthor(Long id) {
         Objects.requireNonNull(id);
-        Author author = authorRepository.findById(id).orElseThrow(() -> new AuthorUUIDNotFoundException(id));
+        Author author = authorRepository.findById(id).orElseThrow(() -> new AuthorIdNotFoundException(id));
         Iterable<Book> books = author.getBooks();
         return BookDTO.mapBookSetToBookDto(books);
     }
@@ -79,7 +56,6 @@ public class AuthorService {
         return AuthorDTO.mapAuthorSetToAuthorDtoSet(authors);
     }
 
-    @Transactional
     public AuthorDTO create(AuthorDTO authorDto) {
         Objects.requireNonNull(authorDto);
         Objects.requireNonNull(authorDto.name());
@@ -87,10 +63,10 @@ public class AuthorService {
         if (authorDto.id() != null) {
             boolean existsById = authorRepository.existsById(authorDto.id());
             if (existsById) {
-                throw new AuthorUUIDAlreadyExistsException(authorDto.id());
+                throw new AuthorIdAlreadyExistsException(authorDto.id());
             }
             entityManager.createNativeQuery("INSERT INTO author (id, name) VALUES (?,?)")
-                    .setParameter(1, UUIDUtil.asBytes(authorDto.id()))
+                    .setParameter(1, authorDto.id())
                     .setParameter(2, authorDto.name())
                     .executeUpdate();
             author = authorRepository.getById(authorDto.id());
@@ -100,18 +76,11 @@ public class AuthorService {
         return AuthorDTO.fromAuthor(author);
     }
 
-    public AuthorDTO updateAuthor(UUID id) {
+    public AuthorDTO updateAuthor(Long id) {
         Objects.requireNonNull(id);
-        Author author = authorRepository.findById(id).orElseThrow(() -> new AuthorUUIDNotFoundException(id));
-        author.setName(randomString(12));
+        Author author = authorRepository.findById(id).orElseThrow(() -> new AuthorIdNotFoundException(id));
+        author.setName("author");
         authorRepository.save(author);
         return AuthorDTO.fromAuthor(author);
-    }
-
-    public Author csvToAuthor(String[] authorRow) {
-        Author author = new Author();
-        author.setId(UUID.fromString(authorRow[0]));
-        author.setName(authorRow[1]);
-        return author;
     }
 }

@@ -4,16 +4,12 @@ import job.hamo.library.dto.GenreDTO;
 import job.hamo.library.entity.Genre;
 import job.hamo.library.exception.*;
 import job.hamo.library.repository.GenreRepository;
-import job.hamo.library.util.UUIDUtil;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import javax.persistence.EntityManager;
-import javax.transaction.Transactional;
 import java.util.*;
-
-import static job.hamo.library.util.DataGenerator.randomString;
-
 
 @Service
 public class GenreService {
@@ -23,16 +19,6 @@ public class GenreService {
 
     @Autowired
     private EntityManager entityManager;
-
-    @Transactional
-    public List<GenreDTO> exportAll() {
-        List<Genre> all = genreRepository.findAll();
-        List<GenreDTO> result = new LinkedList<>();
-        for (Genre genre : all) {
-            result.add(GenreDTO.fromGenre(genre));
-        }
-        return result;
-    }
 
     @Transactional
     public List<GenreDTO> importGenres(Iterable<GenreDTO> genreDTOS) {
@@ -56,6 +42,7 @@ public class GenreService {
         return GenreDTO.mapGenreListToGenreDtoList(genres);
     }
 
+    @Transactional
     public GenreDTO create(GenreDTO genreDto) {
         Objects.requireNonNull(genreDto);
         Objects.requireNonNull(genreDto.name());
@@ -63,10 +50,10 @@ public class GenreService {
         if (genreDto.id() != null) {
             boolean existsById = genreRepository.existsById(genreDto.id());
             if (existsById) {
-                throw new GenreUUIDAlreadyExistsException(genreDto.id());
+                throw new GenreIdAlreadyExistsException(genreDto.id());
             }
             entityManager.createNativeQuery("INSERT INTO genre (id, name) VALUES (?,?)")
-                    .setParameter(1, UUIDUtil.asBytes(genreDto.id()))
+                    .setParameter(1, genreDto.id())
                     .setParameter(2, genreDto.name())
                     .executeUpdate();
             genre = genreRepository.getById(genreDto.id());
@@ -77,24 +64,17 @@ public class GenreService {
         return GenreDTO.fromGenre(genre);
     }
 
-    public GenreDTO getGenreById(UUID id) {
+    public GenreDTO getGenreById(Long id) {
         Objects.requireNonNull(id);
-        Genre genre = genreRepository.findById(id).orElseThrow(() -> new GenreUUIDNotFoundException(id));
+        Genre genre = genreRepository.findById(id).orElseThrow(() -> new GenreIdNotFoundException(id));
         return GenreDTO.fromGenre(genre);
     }
 
-    public GenreDTO updateGenre(UUID id) {
+    public GenreDTO updateGenre(Long id) {
         Objects.requireNonNull(id);
-        Genre genre = genreRepository.findById(id).orElseThrow(() -> new GenreUUIDNotFoundException(id));
-        genre.setName(randomString(12));
+        Genre genre = genreRepository.findById(id).orElseThrow(() -> new GenreIdNotFoundException(id));
+        genre.setName("genre");
         Genre changedGenre = genreRepository.save(genre);
         return GenreDTO.fromGenre(changedGenre);
-    }
-
-    public Genre csvToGenre(String[] genreRow) {
-        Genre genre = new Genre();
-        genre.setId(UUID.fromString(genreRow[0]));
-        genre.setName(genreRow[1]);
-        return genre;
     }
 }
