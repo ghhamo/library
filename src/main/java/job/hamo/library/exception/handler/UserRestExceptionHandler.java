@@ -3,7 +3,7 @@ package job.hamo.library.exception.handler;
 import job.hamo.library.exception.UserEmailOrPasswordMismatchException;
 import job.hamo.library.exception.UserIdAlreadyExistsException;
 import job.hamo.library.exception.UserIdNotFoundException;
-import job.hamo.library.exception.UserWithEmailAlreadyExistsException;
+import job.hamo.library.exception.UserEmailAlreadyExistsException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,7 +22,7 @@ public class UserRestExceptionHandler extends ResponseEntityExceptionHandler {
                 new HttpHeaders(), HttpStatus.NOT_FOUND, request);
     }
 
-    @ExceptionHandler({UserWithEmailAlreadyExistsException.class})
+    @ExceptionHandler({UserEmailAlreadyExistsException.class})
     public ResponseEntity<Object> handleAlreadyExistsRequest(Exception ex, WebRequest request) {
         return handleExceptionInternal(ex, "{\"errors\":{\"userEmail\": \"User with email already exists\"}}",
                 new HttpHeaders(), HttpStatus.BAD_REQUEST, request);

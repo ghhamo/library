@@ -2,7 +2,6 @@ package job.hamo.library.entity;
 
 import javax.persistence.*;
 import java.util.Set;
-import java.util.UUID;
 
 @Entity
 public class Role {

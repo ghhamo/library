@@ -12,7 +12,6 @@ import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
-import javax.persistence.EntityManager;
 import javax.transaction.Transactional;
 import java.util.*;
 
@@ -20,63 +19,56 @@ import java.util.*;
 @Component
 public class SetupDataLoader implements ApplicationListener<ContextRefreshedEvent> {
 
-    public static final String ROLE_USER = "ROLE_USER";
-    public static final String ROLE_EDITOR = "ROLE_EDITOR";
-    public static final String ROLE_ADMIN = "ROLE_ADMIN";
+    public static final String USER = "USER";
+    public static final String EDITOR = "EDITOR";
+    public static final String ADMIN = "ADMIN";
+    public static final String SUPER_ADMIN = "SUPER_ADMIN";
 
     boolean alreadySetup = false;
 
-    @Autowired
-    private EntityManager entityManager;
+    private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
+    private final PrivilegeRepository privilegeRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private RoleRepository roleRepository;
-
-    @Autowired
-    private PrivilegeRepository privilegeRepository;
-
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    public SetupDataLoader(UserRepository userRepository, RoleRepository roleRepository,
+                           PrivilegeRepository privilegeRepository, PasswordEncoder passwordEncoder) {
+        this.userRepository = userRepository;
+        this.roleRepository = roleRepository;
+        this.privilegeRepository = privilegeRepository;
+        this.passwordEncoder = passwordEncoder;
+    }
 
     @Override
     @Transactional
     public void onApplicationEvent(ContextRefreshedEvent event) {
         if (alreadySetup) return;
 
-        createRoleIfNotFound(ROLE_USER, Collections.emptySet());
-        createRoleIfNotFound(ROLE_EDITOR, Collections.emptySet());
-        createRoleIfNotFound(ROLE_ADMIN, Collections.emptySet());
-
-        Role adminRoleFromDB = roleRepository.findByName(ROLE_ADMIN).orElseThrow(IllegalArgumentException::new);
-
-        String email = "admin@admin.com";
+        createRoleIfNotFound(USER, Collections.emptySet());
+        createRoleIfNotFound(EDITOR, Collections.emptySet());
+        createRoleIfNotFound(ADMIN, Collections.emptySet());
+        createRoleIfNotFound(SUPER_ADMIN, Collections.emptySet());
+        Role adminRoleFromDB = roleRepository.findByName(SUPER_ADMIN)
+                .orElseThrow(IllegalArgumentException::new);
+        String email = "admin@superadmin.com";
         Optional<User> adminFromDB = userRepository.findByEmail(email);
         if (adminFromDB.isPresent()) {
             return;
         }
-        String sql = "INSERT INTO user (id, name, surname, email, password, enabled, role_id, age, city, region, country) VALUES (?,?,?,?,?,?,?,?,?,?,?)";
-        String name = "Admin";
-        String surname = "Admin";
-        String city = "Admin";
-        String region = "Admin";
-        String country = "Admin";
-        String password = passwordEncoder.encode("admin");
-        entityManager.createNativeQuery(sql)
-                .setParameter(1, Long.MAX_VALUE)
-                .setParameter(2, name)
-                .setParameter(3, surname)
-                .setParameter(4, email)
-                .setParameter(5, password)
-                .setParameter(6, true)
-                .setParameter(7, adminRoleFromDB.getId())
-                .setParameter(8, 432)
-                .setParameter(9, city)
-                .setParameter(10, region)
-                .setParameter(11, country)
-                .executeUpdate();
+        User admin = new User();
+        admin.setId(Long.MAX_VALUE);
+        admin.setName("SuperAdmin");
+        admin.setSurname("SuperAdmin");
+        admin.setEmail(email);
+        admin.setEnabled(true);
+        admin.setRole(adminRoleFromDB);
+        admin.setAge(34);
+        admin.setCity("SuperAdmin");
+        admin.setRegion("SuperAdmin");
+        admin.setCountry("SuperAdmin");
+        admin.setPassword(passwordEncoder.encode("superadmin"));
+        userRepository.save(admin);
         alreadySetup = true;
     }
 

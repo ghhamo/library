@@ -6,103 +6,55 @@ import job.hamo.library.entity.BookCollection;
 import job.hamo.library.exception.*;
 import job.hamo.library.repository.BookRepository;
 import job.hamo.library.repository.BookCollectionRepository;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
-import javax.persistence.EntityManager;
 import java.util.*;
 
 @Service
 public class BookCollectionService {
 
-    @Autowired
-    private BookCollectionRepository bookCollectionRepository;
-    @Autowired
-    private BookRepository bookRepository;
+    private final BookCollectionRepository bookCollectionRepository;
+    private final BookRepository bookRepository;
 
     @Autowired
-    private EntityManager entityManager;
-
-    @Transactional
-    public List<CreateBookCollectionDTO> importBookCollections(Iterable<CreateBookCollectionDTO> collections) {
-        List<CreateBookCollectionDTO> invalidDTOs = new LinkedList<>();
-        for (CreateBookCollectionDTO collectionDTO : collections) {
-            if (collectionDTO == null) {
-                continue;
-            }
-            try {
-                create(collectionDTO);
-            } catch (ValidationException validationException) {
-                invalidDTOs.add(collectionDTO);
-            }
-        }
-        return invalidDTOs;
+    public BookCollectionService(BookCollectionRepository bookCollectionRepository, BookRepository bookRepository) {
+        this.bookCollectionRepository = bookCollectionRepository;
+        this.bookRepository = bookRepository;
     }
 
-    @Transactional
-    public List<CreateCollectionRelationshipDTO> importCollectionRelationship(Iterable<CreateCollectionRelationshipDTO> relationshipDTOS) {
-        List<CreateCollectionRelationshipDTO> invalidDTOs = new LinkedList<>();
-        for (CreateCollectionRelationshipDTO relationshipDTO : relationshipDTOS) {
-            if (relationshipDTO == null) {
-                continue;
-            }
-            try {
-                createRelationship(relationshipDTO);
-            } catch (ValidationException validationException) {
-                invalidDTOs.add(relationshipDTO);
-            }
-        }
-        return invalidDTOs;
+    public Iterable<BookCollectionDTO> getAllCollections(PaginationDTO paginationDTO) {
+        PageRequest pageRequest = PageRequest.of(paginationDTO.pageNumber(), paginationDTO.pageSize());
+        Page<BookCollection> bookCollections = bookCollectionRepository.findAll(pageRequest);
+        return BookCollectionDTO.mapCollectionListToCollectionDtoList(bookCollections);
     }
 
-    public Iterable<BookCollectionDTO> getAllCollections() {
-        Iterable<BookCollection> collections = bookCollectionRepository.findAll();
-        return BookCollectionDTO.mapCollectionListToCollectionDtoList(collections);
-    }
-
-    public Iterable<BookDTO> getBooksOfCollection(Long collection_id) {
-        Objects.requireNonNull(collection_id);
-        BookCollection bookCollection = bookCollectionRepository.findById(collection_id)
-                .orElseThrow(() -> new BookCollectionIdNotFoundException(collection_id));
+    public Iterable<BookDTO> getBooksOfCollection(Long collectionId) {
+        Objects.requireNonNull(collectionId);
+        BookCollection bookCollection = bookCollectionRepository.findById(collectionId)
+                .orElseThrow(() -> new BookCollectionIdNotFoundException(collectionId));
         return BookDTO.mapBookSetToBookDto(bookCollection.getBooks());
     }
 
-    private void createRelationship(CreateCollectionRelationshipDTO relationshipDTO) {
-        Objects.requireNonNull(relationshipDTO);
-        Objects.requireNonNull(relationshipDTO.bookId());
-        Objects.requireNonNull(relationshipDTO.collectionId());
-        BookCollection bookCollection = bookCollectionRepository.findById(relationshipDTO.collectionId())
-                .orElseThrow(() -> new BookCollectionIdNotFoundException(relationshipDTO.collectionId()));
-        Book book = bookRepository.findById(relationshipDTO.bookId()).orElseThrow(() ->
-                new BookListIdNotFoundException(relationshipDTO.bookId()));
-        entityManager.createNativeQuery("INSERT INTO collection_books (collection_id, book_id) VALUES(?, ?)")
-                .setParameter(1, bookCollection.getId())
-                .setParameter(2, book.getId())
-                .executeUpdate();
-    }
-
-    @Transactional
-    public BookCollectionDTO create(CreateBookCollectionDTO collectionDto) {
+    public CreateBookCollectionDTO create(CreateBookCollectionDTO collectionDto) {
         Objects.requireNonNull(collectionDto);
         Objects.requireNonNull(collectionDto.name());
-        Objects.requireNonNull(collectionDto.userId());
-        if (collectionDto.id() != null) {
-            boolean existsById = bookCollectionRepository.existsById(collectionDto.id());
-            if (existsById) {
-                throw new BookCollectionIdAlreadyExistsException(collectionDto.id());
-            }
-            entityManager.createNativeQuery("INSERT INTO book_collection (id, name, user_id) VALUES (?,?,?)")
-                    .setParameter(1, collectionDto.id())
-                    .setParameter(2, collectionDto.name())
-                    .setParameter(3, collectionDto.userId())
-                    .executeUpdate();
-        } else {
-            bookCollectionRepository.save(CreateBookCollectionDTO.toBookCollection(collectionDto));
+        Optional<BookCollection> bookCollection = bookCollectionRepository.findByName(collectionDto.name());
+        if (bookCollection.isPresent()) {
+            throw new BookCollectionNameAlreadyExistsException(collectionDto.name());
         }
-        BookCollection bookCollection = CreateBookCollectionDTO.toBookCollection(collectionDto);
-        BookCollection savedBookCollection = entityManager.merge(bookCollection);
-        return BookCollectionDTO.fromBookCollection(savedBookCollection);
+        BookCollection toBookCollection = CreateBookCollectionDTO.toBookCollection(collectionDto);
+        BookCollection savedBookCollection = bookCollectionRepository.save(toBookCollection);
+        return CreateBookCollectionDTO.fromBookCollection(savedBookCollection);
+
+    }
+
+    public BookCollectionDTO getCollectionByName(String name) {
+        Objects.requireNonNull(name);
+        BookCollection bookCollection = bookCollectionRepository.findByName(name).orElseThrow(() -> new BookCollectionNameNotFoundException(name));
+        return BookCollectionDTO.fromBookCollection(bookCollection);
     }
 
     public BookCollectionDTO getCollectionById(Long id) {
@@ -155,8 +107,8 @@ public class BookCollectionService {
     public Iterable<BookCollectionDTO> getCollectionsWhereBookExist(Long id) {
         Objects.requireNonNull(id);
         Book book = bookRepository.findById(id).orElseThrow(() -> new BookIdNotFoundException(id));
-        Iterable<BookCollection> collections = bookCollectionRepository.findAll();
-        return BookCollectionDTO.mapCollectionEntityListToCollectionDtoList(collections, book);
+        Iterable<BookCollection> lists = bookCollectionRepository.findAll();
+        return BookCollectionDTO.mapCollectionEntityListToCollectionDtoList(lists, book);
     }
 
     public BookCollectionDTO addBookToCollection(Long collectionId, Long bookId) {

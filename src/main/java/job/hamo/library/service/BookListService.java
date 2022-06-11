@@ -1,7 +1,7 @@
 package job.hamo.library.service;
 
 import job.hamo.library.dto.CreateBookListDTO;
-import job.hamo.library.dto.CreateListRelationshipDTO;
+import job.hamo.library.dto.PaginationDTO;
 import job.hamo.library.entity.Book;
 import job.hamo.library.entity.BookList;
 import job.hamo.library.entity.User;
@@ -10,63 +10,31 @@ import job.hamo.library.repository.BookListRepository;
 import job.hamo.library.repository.BookRepository;
 import job.hamo.library.dto.BookListDTO;
 import job.hamo.library.repository.UserRepository;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
-import javax.persistence.EntityManager;
 import java.util.*;
 
 @Service
 public class BookListService {
 
-    @Autowired
-    private BookListRepository bookListRepository;
+    private final BookListRepository bookListRepository;
+    private final BookRepository bookRepository;
+    private final UserRepository userRepository;
 
     @Autowired
-    private BookRepository bookRepository;
-
-    @Autowired
-    private EntityManager entityManager;
-
-    @Autowired
-    private UserRepository userRepository;
-
-    @Transactional
-    public List<CreateBookListDTO> importBookLists(Iterable<CreateBookListDTO> listDTOS) {
-        List<CreateBookListDTO> invalidDTOs = new LinkedList<>();
-        for (CreateBookListDTO bookListDTO : listDTOS) {
-            if (bookListDTO == null) {
-                continue;
-            }
-            try {
-                create(bookListDTO);
-            } catch (ValidationException validationException) {
-                invalidDTOs.add(bookListDTO);
-            }
-        }
-        return invalidDTOs;
+    public BookListService(BookListRepository bookListRepository, BookRepository bookRepository, UserRepository userRepository) {
+        this.bookListRepository = bookListRepository;
+        this.bookRepository = bookRepository;
+        this.userRepository = userRepository;
     }
 
-    @Transactional
-    public List<CreateListRelationshipDTO> importBookListRelationships(Iterable<CreateListRelationshipDTO> relationshipDTOS) {
-        List<CreateListRelationshipDTO> invalidDTOs = new LinkedList<>();
-        for (CreateListRelationshipDTO relationshipDTO : relationshipDTOS) {
-            if (relationshipDTO == null) {
-                continue;
-            }
-            try {
-                createRelationship(relationshipDTO);
-            } catch (ValidationException validationException) {
-                invalidDTOs.add(relationshipDTO);
-            }
-        }
-        return invalidDTOs;
-    }
-
-    public Iterable<BookListDTO> getAllLists() {
-        Iterable<BookList> lists = bookListRepository.findAll();
-        return BookListDTO.mapBookListEntityListToBookListDtoList(lists);
+    public Iterable<BookListDTO> getAllLists(PaginationDTO paginationDTO) {
+        PageRequest pageRequest = PageRequest.of(paginationDTO.pageNumber(), paginationDTO.pageSize());
+        Page<BookList> bookLists = bookListRepository.findAll(pageRequest);
+        return BookListDTO.mapBookListEntityListToBookListDtoList(bookLists);
     }
 
     public Iterable<BookListDTO> getListsWhereBookExist(Long id) {
@@ -76,49 +44,31 @@ public class BookListService {
         return BookListDTO.mapListEntityListToListDtoList(lists, book);
     }
 
+    public BookListDTO getListByName(String name) {
+        Objects.requireNonNull(name);
+        BookList bookList = bookListRepository.findByName(name).orElseThrow(() -> new BookListNameNotFoundException(name));
+        return BookListDTO.fromBookList(bookList);
+    }
+
     public BookListDTO getListById(Long id) {
         Objects.requireNonNull(id);
         BookList list = bookListRepository.findById(id).orElseThrow(() -> new BookListIdNotFoundException(id));
         return BookListDTO.fromBookList(list);
     }
 
-    private void createRelationship(CreateListRelationshipDTO relationshipDTO) {
-        Objects.requireNonNull(relationshipDTO);
-        Objects.requireNonNull(relationshipDTO.bookId());
-        Objects.requireNonNull(relationshipDTO.listId());
-        BookList bookList = bookListRepository.findById(relationshipDTO.listId()).orElseThrow(() ->
-                new BookListIdNotFoundException(relationshipDTO.listId()));
-        Book book = bookRepository.findById(relationshipDTO.bookId()).orElseThrow(() ->
-                new BookListIdNotFoundException(relationshipDTO.bookId()));
-        entityManager.createNativeQuery("INSERT INTO list_books (list_id, book_id) VALUES(?,?)")
-                .setParameter(1, bookList.getId())
-                .setParameter(2, book.getId())
-                .executeUpdate();
-    }
-
-    @Transactional
-    public BookListDTO create(CreateBookListDTO bookListDto) {
+    public BookListDTO create(CreateBookListDTO bookListDto, Long userId) {
         Objects.requireNonNull(bookListDto);
         Objects.requireNonNull(bookListDto.name());
-        Objects.requireNonNull(bookListDto.userId());
-        BookList bookList;
-        User user = userRepository.findById(bookListDto.userId()).orElseThrow(() ->
-                new UserIdNotFoundException(bookListDto.id()));
-        if (bookListDto.id() != null) {
-            boolean existsById = bookListRepository.existsById(bookListDto.id());
-            if (existsById) {
-                throw new BookListIdAlreadyExistsException(bookListDto.id());
-            }
-            entityManager.createNativeQuery("INSERT INTO book_list (id, name, user_id) VALUES (?,?,?)")
-                    .setParameter(1, bookListDto.id())
-                    .setParameter(2, bookListDto.name())
-                    .setParameter(3, user.getId())
-                    .executeUpdate();
-            bookList = bookListRepository.getById(bookListDto.id());
-        } else {
-            bookList = bookListRepository.save(CreateBookListDTO.toBookCollection(bookListDto));
+        Objects.requireNonNull(userId);
+        Optional<BookList> bookListFromDB = bookListRepository.findByName(bookListDto.name());
+        if (bookListFromDB.isPresent()) {
+            throw new BookListNameAlreadyExistsException(bookListDto.name());
         }
-        return BookListDTO.fromBookList(bookList);
+        User user = userRepository.findById(userId).orElseThrow(() -> new UserIdNotFoundException(bookListDto.id()));
+        BookList bookList = CreateBookListDTO.toBookList(bookListDto);
+        bookList.setUser(user);
+        BookList savedBookList = bookListRepository.save(bookList);
+        return BookListDTO.fromBookList(savedBookList);
     }
 
     public BookListDTO updateList(Long id) {

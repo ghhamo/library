@@ -4,7 +4,6 @@ import job.hamo.library.entity.Genre;
 
 import java.util.HashSet;
 import java.util.Set;
-import java.util.UUID;
 
 public record GenreDTO(Long id, String name) {
 

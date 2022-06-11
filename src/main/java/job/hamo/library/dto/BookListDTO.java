@@ -5,19 +5,12 @@ import job.hamo.library.entity.BookList;
 
 import java.util.HashSet;
 import java.util.Set;
-import java.util.UUID;
 
 public record BookListDTO(Long id, String name) {
 
     public static BookListDTO fromBookList(BookList bookList) {
        return new BookListDTO(bookList.getId(), bookList.getName());
 
-    }
-
-    public static BookList toBookList(BookListDTO bookListDto) {
-        BookList bookList = new BookList();
-        bookList.setName(bookListDto.name);
-        return bookList;
     }
 
     public static Iterable<BookListDTO> mapBookListEntityListToBookListDtoList(Iterable<BookList> lists) {

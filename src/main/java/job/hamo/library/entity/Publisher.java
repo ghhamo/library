@@ -5,6 +5,7 @@ import java.util.Objects;
 import java.util.Set;
 
 @Entity
+@Table(indexes = @Index(columnList = "name"))
 public class Publisher {
 
 
@@ -17,7 +18,7 @@ public class Publisher {
     private String name;
 
     @OneToMany(mappedBy = "publisher", fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
-    private Set<Book> books;
+    private Set<Book> bookEntities;
 
     public Long getId() {
         return id;
@@ -36,11 +37,11 @@ public class Publisher {
     }
 
     public Set<Book> getBooks() {
-        return books;
+        return bookEntities;
     }
 
-    public void setBooks(Set<Book> books) {
-        this.books = books;
+    public void setBooks(Set<Book> bookEntities) {
+        this.bookEntities = bookEntities;
     }
 
     @Override

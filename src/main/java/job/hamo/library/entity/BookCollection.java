@@ -2,7 +2,6 @@ package job.hamo.library.entity;
 
 import javax.persistence.*;
 import java.util.Set;
-import java.util.UUID;
 
 @Entity
 public class BookCollection {
@@ -14,15 +13,17 @@ public class BookCollection {
     @Column(nullable = false, unique = true)
     private String name;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "collection_users",
+            joinColumns = {@JoinColumn(name = "collection_id")},
+            inverseJoinColumns = {@JoinColumn(name = "user_id")})
+    private Set<User> users;
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(name = "collection_books",
             joinColumns = {@JoinColumn(name = "collection_id")},
             inverseJoinColumns = {@JoinColumn(name = "book_id")})
-    private Set<Book> books;
+    private Set<Book> bookEntities;
 
     public Long getId() {
         return id;
@@ -41,19 +42,19 @@ public class BookCollection {
     }
 
     public Set<Book> getBooks() {
-        return books;
+        return bookEntities;
     }
 
-    public void setBooks(Set<Book> books) {
-        this.books = books;
+    public void setBooks(Set<Book> bookEntities) {
+        this.bookEntities = bookEntities;
     }
 
-    public User getUser() {
-        return user;
+    public Set<User> getUsers() {
+        return users;
     }
 
-    public void setUser(User user) {
-        this.user = user;
+    public void setUsers(Set<User> users) {
+        this.users = users;
     }
 }
 

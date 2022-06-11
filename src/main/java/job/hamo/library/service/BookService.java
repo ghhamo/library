@@ -1,17 +1,18 @@
 package job.hamo.library.service;
 
+import job.hamo.library.dto.BookJoinQueryDTO;
 import job.hamo.library.dto.CreateBookDTO;
+import job.hamo.library.dto.PaginationDTO;
 import job.hamo.library.entity.*;
 import job.hamo.library.exception.*;
 import job.hamo.library.repository.*;
 import job.hamo.library.dto.BookDTO;
 import job.hamo.library.util.*;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.*;
@@ -22,110 +23,78 @@ public class BookService {
     @Value("${spring.jpa.properties.hibernate.jdbc.batch_size}")
     private int batchSize;
 
-    @Autowired
-    private BookRepository bookRepository;
+    private final GenreRepository genreRepository;
+    private final BookImageUrlGenerator bookImageUrlGenerator;
+    private final ImageDownloader imageDownloader;
+    private final BookRepository bookRepository;
+    private final AuthorRepository authorRepository;
+    private final PublisherRepository publisherRepository;
 
     @Autowired
-    private GenreRepository genreRepository;
-
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private RatingRepository ratingRepository;
-
-    @Autowired
-    private FileRepository fileRepository;
-
-    @Autowired
-    private AuthorRepository authorRepository;
-
-    @Autowired
-    private PublisherService publisherService;
-
-    @Autowired
-    private AuthorService authorService;
-
-    @Autowired
-    private PublisherRepository publisherRepository;
-
-    @Autowired
-    private BookImageUrlGenerator bookImageUrlGenerator;
-
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
-
-    @Autowired
-    private ImageDownloader imageDownloader;
-
-    @Autowired
-    private CsvParser csvParser;
-
-    @Autowired
-    private CSVUtil csvUtil;
-
-    @Autowired
-    private BatchProcessor batchProcessor;
-
-    public void importAuthorsPublisherAndBooks(MultipartFile file) {
-        List<String[]> rows = csvParser.csvParseToString(file, "book");
-        Set<Author> setAuthors = new HashSet<>();
-        Set<Publisher> setPublishers = new HashSet<>();
-        for (String[] row : rows) {
-            Author author = new Author();
-            author.setName(row[2]);
-            setAuthors.add(author);
-            Publisher publisher = new Publisher();
-            publisher.setName(row[4]);
-            setPublishers.add(publisher);
-        }
-//        List<Publisher> savedPublishers = publisherRepository.saveAll(setPublishers);
-//        List<Author> savedAuthors = authorRepository.saveAll(setAuthors);
-//        Map<String, Publisher> publishers = publisherService.publishersMapToMap(savedPublishers);
-//        Map<String, Author> authors = authorService.authorsMapToMap(savedAuthors);
-        Set<Book> books = new HashSet<>();
-        for (String[] row : rows) {
-            Book book = new Book();
-            book.setIsbn(row[0]);
-            book.setTitle(row[1]);
-//            book.setAuthor(authors.get(row[2].toLowerCase()));
-            book.setAuthor(null);
-            book.setYearOfPublication(row[3]);
-//            book.setPublisher(publishers.get(row[4].toLowerCase()));
-            book.setPublisher(null);
-            book.setImageUrlS(row[5]);
-            book.setImageUrlM(row[6]);
-            book.setImageUrlL(row[7]);
-            books.add(book);
-        }
-//        books = books.stream().limit(100000).collect(Collectors.toSet());
-
-        batchProcessor.batchInsert(books, bookRepository);
-//        bookRepository.saveAll(books);
+    public BookService(GenreRepository genreRepository, BookImageUrlGenerator bookImageUrlGenerator,
+                       ImageDownloader imageDownloader, BookRepository bookRepository,
+                       AuthorRepository authorRepository, PublisherRepository publisherRepository) {
+        this.genreRepository = genreRepository;
+        this.bookImageUrlGenerator = bookImageUrlGenerator;
+        this.imageDownloader = imageDownloader;
+        this.bookRepository = bookRepository;
+        this.authorRepository = authorRepository;
+        this.publisherRepository = publisherRepository;
     }
 
-    public Iterable<BookDTO> getAllBook() {
-        Iterable<Book> books = bookRepository.findAll();
+    public Map<String, Book> booksMapToMap(Collection<Book> list) {
+        Map<String, Book> books = new HashMap<>();
+        for (Book book : list) {
+            books.put(book.getIsbn().toLowerCase(), book);
+        }
+        return books;
+    }
+
+    public Iterable<BookDTO> getBooksByAuthorName(String authorName, PaginationDTO paginationDTO) {
+        Objects.requireNonNull(authorName);
+        authorRepository.findByName(authorName).orElseThrow(() -> new AuthorNameNotFoundException(authorName));
+        PageRequest pageRequest = PageRequest.of(paginationDTO.pageNumber(), paginationDTO.pageSize());
+        Page<Book> books = bookRepository.findAllByAuthorName(authorName, pageRequest);
         return BookDTO.mapBookSetToBookDto(books);
     }
 
-    @Transactional
+    public Iterable<BookDTO> getBooksByPublisherName(String publisherName, PaginationDTO paginationDTO) {
+        Objects.requireNonNull(publisherName);
+        publisherRepository.findByName(publisherName).orElseThrow(() -> new PublisherNameNotFoundException(publisherName));
+        PageRequest pageRequest = PageRequest.of(paginationDTO.pageNumber(), paginationDTO.pageSize());
+        Page<Book> books = bookRepository.findAllByPublisherName(publisherName, pageRequest);
+        return BookDTO.mapBookSetToBookDto(books);
+    }
+
+    public Iterable<BookDTO> getBooks(PaginationDTO paginationDTO) {
+        PageRequest pageRequest = PageRequest.of(paginationDTO.pageNumber(), paginationDTO.pageSize());
+        Page<Book> books = bookRepository.findAll(pageRequest);
+        return BookDTO.mapBookSetToBookDto(books);
+    }
+
+    public Iterable<BookJoinQueryDTO> getAllBooksByAuthorAndPublisherIds(int limit) {
+        List<Object[]> results = bookRepository.findAllBooksByAuthorAndPublisherIds(limit);
+        return BookJoinQueryDTO.objectToBookJoinQueryDTO(results);
+    }
+
     public BookDTO create(CreateBookDTO createBookDTO) {
-        Book book;
         Objects.requireNonNull(createBookDTO);
         Objects.requireNonNull(createBookDTO.getISBN());
         Objects.requireNonNull(createBookDTO.getTitle());
-        Objects.requireNonNull(createBookDTO.getAuthorId());
         Objects.requireNonNull(createBookDTO.getYearOfPublication());
         Objects.requireNonNull(createBookDTO.getPublisherId());
-        Objects.requireNonNull(createBookDTO.getImageUrlL());
-        Objects.requireNonNull(createBookDTO.getImageUrlM());
-        Objects.requireNonNull(createBookDTO.getImageUrlS());
-        book = CreateBookDTO.toBook(createBookDTO);
-
-        book = bookRepository.save(CreateBookDTO.toBook(createBookDTO));
-
-        return BookDTO.fromBook(book);
+        Objects.requireNonNull(createBookDTO.getGenreId());
+        Objects.requireNonNull(createBookDTO.getAuthorId());
+        Book book = CreateBookDTO.toBook(createBookDTO);
+        Author author = authorRepository.findById(createBookDTO.getAuthorId()).orElseThrow(() -> new AuthorIdNotFoundException(createBookDTO.getAuthorId()));
+        Genre genre = genreRepository.findById(createBookDTO.getGenreId()).orElseThrow(() -> new GenreIdNotFoundException(createBookDTO.getGenreId()));
+        Publisher publisher = publisherRepository.findById(createBookDTO.getPublisherId()).orElseThrow(() -> new PublisherIdNotFoundException(createBookDTO.getPublisherId()));
+        book.setPublisher(publisher);
+        book.setAuthor(author);
+        book.setGenre(genre);
+        book.setImageUrlL(bookImageUrlGenerator.addBookUrl());
+        Book savedBook = bookRepository.save(book);
+        return BookDTO.fromBook(savedBook);
     }
 
     public BookDTO updateBook(Long id) {
@@ -134,36 +103,6 @@ public class BookService {
         book.getGenre().setName("genre");
         bookRepository.save(book);
         return BookDTO.fromBook(book);
-    }
-
-    @Transactional
-    public void rateBook(Long userId, Long bookId, int userRating) {
-        Objects.requireNonNull(userId);
-        Objects.requireNonNull(bookId);
-        if (userRating < 0 || userRating > 10) {
-            throw new IllegalRatingException(userRating);
-        }
-        User user = userRepository.findById(userId).orElseThrow(() -> new UserIdNotFoundException(userId));
-        Book book = bookRepository.findById(bookId).orElseThrow(() -> new BookIdNotFoundException(bookId));
-        Rating rating = new Rating();
-        rating.setRating(userRating);
-        rating.setBook(book);
-        rating.setUser(user);
-        Rating ratingFromDB = ratingRepository.save(rating);
-        Long countOfRating = book.getCountOfRating();
-        int oldRatingOfBook = book.getRating();
-        book.setRating(countRatingOfBook(countOfRating, oldRatingOfBook, userRating));
-        book.getRatings().add(ratingFromDB);
-        bookRepository.save(book);
-        user.getRatedBooks().add(ratingFromDB);
-        userRepository.save(user);
-    }
-
-    private int countRatingOfBook(Long countOfRating, int oldRatingOfBook, int userRating) {
-        long sumOfRating = countOfRating * oldRatingOfBook;
-        countOfRating += 1;
-        sumOfRating += userRating;
-        return (int) (sumOfRating / countOfRating);
     }
 
     public BookDTO getBookById(Long id) {

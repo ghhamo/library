@@ -2,25 +2,36 @@ package job.hamo.library.service;
 
 import job.hamo.library.dto.AuthorDTO;
 import job.hamo.library.dto.BookDTO;
+import job.hamo.library.dto.PaginationDTO;
 import job.hamo.library.entity.Author;
 import job.hamo.library.entity.Book;
-import job.hamo.library.exception.AuthorIdAlreadyExistsException;
-import job.hamo.library.exception.AuthorIdNotFoundException;
+import job.hamo.library.exception.*;
 import job.hamo.library.repository.AuthorRepository;
+import job.hamo.library.repository.BookRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import javax.persistence.EntityManager;
 import java.util.*;
 
 @Service
 public class AuthorService {
 
-    @Autowired
-    private AuthorRepository authorRepository;
+    private final AuthorRepository authorRepository;
+    private final BookRepository bookRepository;
 
     @Autowired
-    private EntityManager entityManager;
+    public AuthorService(AuthorRepository authorRepository, BookRepository bookRepository) {
+        this.authorRepository = authorRepository;
+        this.bookRepository = bookRepository;
+    }
+
+    public Iterable<AuthorDTO> getAllAuthor(PaginationDTO paginationDTO) {
+        PageRequest pageRequest = PageRequest.of(paginationDTO.pageNumber(), paginationDTO.pageSize());
+        Page<Author> authors = authorRepository.findAll(pageRequest);
+        return AuthorDTO.mapAuthorSetToAuthorDtoSet(authors);
+    }
 
     public Map<String, Author> authorsMapToMap(Collection<Author> list) {
         Map<String, Author> authors = new HashMap<>();
@@ -44,36 +55,29 @@ public class AuthorService {
         } else throw new AuthorIdNotFoundException(id);
     }
 
-    public Iterable<BookDTO> getBooksOfAuthor(Long id) {
-        Objects.requireNonNull(id);
-        Author author = authorRepository.findById(id).orElseThrow(() -> new AuthorIdNotFoundException(id));
-        Iterable<Book> books = author.getBooks();
-        return BookDTO.mapBookSetToBookDto(books);
+    public AuthorDTO getAuthorByName(String name) {
+        Objects.requireNonNull(name);
+        Author author = authorRepository.findByName(name).orElseThrow(() -> new AuthorNameNotFoundException(name));
+        return AuthorDTO.fromAuthor(author);
     }
 
-    public Iterable<AuthorDTO> getAllAuthor() {
-        Iterable<Author> authors = authorRepository.findAll();
-        return AuthorDTO.mapAuthorSetToAuthorDtoSet(authors);
+    public Iterable<BookDTO> getBooksOfAuthorByAuthorId(Long id, PaginationDTO paginationDTO) {
+        Objects.requireNonNull(id);
+        authorRepository.findById(id).orElseThrow(() -> new AuthorIdNotFoundException(id));
+        PageRequest pageRequest = PageRequest.of(paginationDTO.pageNumber(), paginationDTO.pageSize());
+        Page<Book> books = bookRepository.findAllByAuthorId(id, pageRequest);
+        return BookDTO.mapBookSetToBookDto(books);
     }
 
     public AuthorDTO create(AuthorDTO authorDto) {
         Objects.requireNonNull(authorDto);
         Objects.requireNonNull(authorDto.name());
-        Author author;
-        if (authorDto.id() != null) {
-            boolean existsById = authorRepository.existsById(authorDto.id());
-            if (existsById) {
-                throw new AuthorIdAlreadyExistsException(authorDto.id());
-            }
-            entityManager.createNativeQuery("INSERT INTO author (id, name) VALUES (?,?)")
-                    .setParameter(1, authorDto.id())
-                    .setParameter(2, authorDto.name())
-                    .executeUpdate();
-            author = authorRepository.getById(authorDto.id());
-        } else {
-            author = authorRepository.save(authorDto.toAuthor());
+        Optional<Author> author = authorRepository.findByName(authorDto.name());
+        if (author.isPresent()) {
+            throw new AuthorNameAlreadyExistsException(authorDto.name());
         }
-        return AuthorDTO.fromAuthor(author);
+        Author savedAuthor = authorRepository.save(authorDto.toAuthor());
+        return AuthorDTO.fromAuthor(savedAuthor);
     }
 
     public AuthorDTO updateAuthor(Long id) {

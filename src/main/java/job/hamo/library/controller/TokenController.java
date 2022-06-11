@@ -1,6 +1,6 @@
 package job.hamo.library.controller;
 
-import job.hamo.library.service.UserService;
+import job.hamo.library.service.MyUserDetailsService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -12,11 +12,15 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api")
 public class TokenController {
 
+    private final MyUserDetailsService myUserDetailsService;
+
     @Autowired
-    private UserService userService;
+    public TokenController(MyUserDetailsService myUserDetailsService) {
+        this.myUserDetailsService = myUserDetailsService;
+    }
 
     @PostMapping("/token")
     public String token(Authentication authentication) {
-        return userService.sign_in(authentication);
+        return myUserDetailsService.generateToken(authentication);
     }
 }

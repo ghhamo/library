@@ -1,23 +1,23 @@
 package job.hamo.library.entity;
 
 import javax.persistence.*;
-import java.io.Serializable;
 
 @Entity
 public class Rating {
 
 
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "rating_id_sequence")
+    @SequenceGenerator(name = "rating_id_sequence", sequenceName = "rating_id_sequence", allocationSize = 50000)
     private Long id;
 
     private int rating;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "isbn", referencedColumnName = "isbn")
+    @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
+    @JoinColumn(name = "book_id")
     private Book book;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
     @JoinColumn(name = "user_id")
     private User user;
 

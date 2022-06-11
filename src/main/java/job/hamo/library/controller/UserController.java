@@ -1,54 +1,74 @@
 package job.hamo.library.controller;
 
-import job.hamo.library.dto.CreateUserDTO;
-import job.hamo.library.dto.RoleDTO;
-import job.hamo.library.entity.Role;
+import job.hamo.library.dto.*;
+import job.hamo.library.service.BookListService;
 import job.hamo.library.service.UserService;
-import job.hamo.library.util.CSVUtil;
-import job.hamo.library.util.CsvParser;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
-
-import java.util.ArrayList;
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/users")
 public class UserController {
 
-    @Autowired
-    private UserService userService;
+    private final UserService userService;
+    private final BookListService bookListService;
 
     @Autowired
-    private CsvParser csvParser;
-
-    @Autowired
-    private CSVUtil csvUtil;
-
-    @PostMapping("import/roles")
-    public Iterable<RoleDTO> importRoles(@RequestParam("file") MultipartFile file) {
-        List<String[]> rows = csvParser.csvParseToString(file, "role");
-        List<RoleDTO> roleDTOS = new ArrayList<>();
-        for (String[] row : rows) {
-            Role role = csvUtil.csvToRole(row);
-            roleDTOS.add(RoleDTO.fromRole(role));
-        }
-        return userService.importRoles(roleDTOS);
+    public UserController(UserService userService, BookListService bookListService) {
+        this.userService = userService;
+        this.bookListService = bookListService;
     }
 
-    @PostMapping("/import")
-    @PreAuthorize("hasAnyAuthority('ADMIN')")
-    public void importUsers(@RequestParam("file") MultipartFile file) {
-         userService.importUsers(file);
-    }
+    @Value("${page.max.size}")
+    private Integer pageMaxSize;
 
     @PostMapping
-    public ResponseEntity<HttpStatus> create(@RequestBody CreateUserDTO user) {
+    @PreAuthorize("hasAuthority('SCOPE_SUPER_ADMIN')")
+    public ResponseEntity<HttpStatus> createUser(@RequestBody UserDTO user) throws Exception {
         userService.createUser(user);
         return ResponseEntity.ok().body(HttpStatus.CREATED);
+    }
+
+    @PostMapping("/{id}")
+    @PreAuthorize("hasAuthority('SCOPE_USER')")
+    public ResponseEntity<BookListDTO> createBookList(@RequestBody CreateBookListDTO bookListDto, @PathVariable Long id) {
+        return ResponseEntity.ok().body(bookListService.create(bookListDto, id));
+    }
+
+    @GetMapping
+    @PreAuthorize("hasAnyAuthority('SCOPE_SUPER_ADMIN', 'SCOPE_ADMIN')")
+    public Iterable<UserDTO> getAll(@RequestParam int pageIndex, @RequestParam int pageSize) {
+        if (pageMaxSize < pageSize) {
+            throw new IllegalStateException();
+        }
+        return userService.getUsers(new PaginationDTO(pageIndex, pageSize));
+    }
+
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAnyAuthority('SCOPE_SUPER_ADMIN', 'SCOPE_ADMIN')")
+    public UserDTO getOne(@PathVariable Long id) {
+        return userService.getUserById(id);
+    }
+
+    @GetMapping("/{email}")
+    @PreAuthorize("hasAnyAuthority('SCOPE_SUPER_ADMIN', 'SCOPE_ADMIN')")
+    public UserDTO getByEmail(@PathVariable String email) {
+        return userService.getUserByEmail(email);
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyAuthority('SCOPE_SUPER_ADMIN', 'SCOPE_ADMIN')")
+    public UserDTO updateUser(@PathVariable Long id) {
+        return userService.updateUser(id);
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyAuthority('SCOPE_SUPER_ADMIN', 'SCOPE_ADMIN')")
+    public void delete(@PathVariable Long id) {
+        userService.deleteUser(id);
     }
 }

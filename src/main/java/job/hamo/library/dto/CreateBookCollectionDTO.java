@@ -1,24 +1,18 @@
 package job.hamo.library.dto;
 
 import job.hamo.library.entity.BookCollection;
-import job.hamo.library.entity.User;
 
-import java.util.UUID;
-
-public record CreateBookCollectionDTO(Long id, String name, Long userId) {
+public record CreateBookCollectionDTO(Long id, String name) {
 
     public static CreateBookCollectionDTO fromBookCollection(BookCollection bookCollection) {
         return new CreateBookCollectionDTO(bookCollection.getId(),
-                bookCollection.getName(), bookCollection.getUser().getId());
+                bookCollection.getName());
     }
 
     public static BookCollection toBookCollection(CreateBookCollectionDTO createBookCollectionDTO) {
         BookCollection bookCollection = new BookCollection();
         bookCollection.setId(createBookCollectionDTO.id());
         bookCollection.setName(createBookCollectionDTO.name());
-        User user = new User();
-        user.setId(createBookCollectionDTO.userId());
-        bookCollection.setUser(user);
         return bookCollection;
     }
 }

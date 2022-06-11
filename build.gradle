@@ -15,7 +15,6 @@ repositories {
 dependencies {
     implementation 'org.imgscalr:imgscalr-lib:4.2'
     implementation 'commons-io:commons-io:20030203.000550'
-
     implementation group: 'commons-io', name: 'commons-io', version: '2.6'
     implementation group: 'org.springframework.batch', name: 'spring-batch-core', version: '4.3.5'
     implementation 'org.springframework.boot:spring-boot-starter-thymeleaf:2.6.7'

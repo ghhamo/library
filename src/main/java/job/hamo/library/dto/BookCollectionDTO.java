@@ -5,7 +5,6 @@ import job.hamo.library.entity.BookCollection;
 
 import java.util.HashSet;
 import java.util.Set;
-import java.util.UUID;
 
 public record BookCollectionDTO(Long id, String name) {
 

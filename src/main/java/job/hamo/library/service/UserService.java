@@ -1,134 +1,156 @@
 package job.hamo.library.service;
 
 import job.hamo.library.SetupDataLoader;
-import job.hamo.library.dto.CreateUserDTO;
-import job.hamo.library.dto.LocationDTO;
-import job.hamo.library.dto.RoleDTO;
+import job.hamo.library.dto.PaginationDTO;
+import job.hamo.library.dto.UserDTO;
 import job.hamo.library.entity.*;
 import job.hamo.library.exception.*;
 import job.hamo.library.repository.*;
-import job.hamo.library.util.CsvParser;
-import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.oauth2.jwt.JwtClaimsSet;
-import org.springframework.security.oauth2.jwt.JwtEncoder;
-import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 
-import javax.persistence.EntityManager;
-import java.time.Instant;
 import java.util.*;
-import java.util.stream.Collectors;
 
 
 @Service
-@AllArgsConstructor
 public class UserService {
 
-    @Autowired
-    private UserRepository userRepository;
+    private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final RatingRepository ratingRepository;
+    private final BookRepository bookRepository;
 
     @Autowired
-    private RoleRepository roleRepository;
+    public UserService(UserRepository userRepository, RoleRepository roleRepository,
+                       PasswordEncoder passwordEncoder, RatingRepository ratingRepository,
+                       BookRepository bookRepository) {
+        this.userRepository = userRepository;
+        this.roleRepository = roleRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.ratingRepository = ratingRepository;
+        this.bookRepository = bookRepository;
+    }
 
-    @Autowired
-    private EntityManager entityManager;
-
-    @Autowired
-    private JwtEncoder encoder;
-
-    @Autowired
-    private LocationService locationService;
-
-    @Autowired
-    private PasswordEncoder passwordEncoder;
-
-    @Autowired
-    private CsvParser csvParser;
-
-    private Role userRole;
-
-
-    public void importUsers(MultipartFile file) {
-        List<String[]> rows = csvParser.csvParseToString(file, "user");
-        List<User> users = new ArrayList<>();
-        userRole = roleRepository.getByName(SetupDataLoader.ROLE_USER);
-        for (String[] row : rows) {
-            String[] location = row[1].split(",");
-            LocationDTO locationDTO = locationService.stringToLocation(location);
-            User user = new User();
-            user.setId(Long.parseLong(row[0]));
-            user.setCity(locationDTO.city());
-            user.setCountry(locationDTO.country());
-            user.setRegion(locationDTO.region());
-            user.setRole(userRole);
-            user.setEnabled(true);
-            if (row[2].equals("NULL")) {
-                user.setAge(0);
-            } else {
-                user.setAge(Integer.parseInt(row[2]));
-            }
-            users.add(user);
+    public void createUser(UserDTO userDTO) {
+        Objects.requireNonNull(userDTO);
+        Objects.requireNonNull(userDTO.email());
+        Objects.requireNonNull(userDTO.password());
+        Objects.requireNonNull(userDTO.name());
+        Objects.requireNonNull(userDTO.surname());
+        Optional<User> userFromDB = userRepository.findByEmail(userDTO.email());
+        if (userFromDB.isPresent()) {
+            throw new UserEmailAlreadyExistsException(userDTO.email());
         }
-        userRepository.saveAll(users);
+        User user = UserDTO.toUser(userDTO);
+        user.setPassword(passwordEncoder.encode(userDTO.password()));
+        user.setEnabled(true);
+        Role role = roleRepository.getByName(SetupDataLoader.USER);
+        user.setRole(role);
+        userRepository.save(user);
     }
 
-    @Transactional
-    public List<RoleDTO> importRoles(Iterable<RoleDTO> roleDTOS) {
-        List<RoleDTO> invalidDTOs = new LinkedList<>();
-        for (RoleDTO roleDTO : roleDTOS) {
-            if (roleDTO == null) {
-                continue;
-            }
-            try {
-                createRole(roleDTO);
-            } catch (ValidationException validationException) {
-                invalidDTOs.add(roleDTO);
-            }
+    public void createAdmin(UserDTO adminDTO) {
+        Objects.requireNonNull(adminDTO);
+        Objects.requireNonNull(adminDTO.email());
+        Objects.requireNonNull(adminDTO.password());
+        Objects.requireNonNull(adminDTO.name());
+        Objects.requireNonNull(adminDTO.surname());
+        Optional<User> adminFromDB = userRepository.findByEmail(adminDTO.email());
+        if (adminFromDB.isPresent()) {
+            throw new UserEmailAlreadyExistsException(adminDTO.email());
         }
-        return invalidDTOs;
+        User admin = UserDTO.toUser(adminDTO);
+        admin.setPassword(passwordEncoder.encode(adminDTO.password()));
+        admin.setEnabled(true);
+        Role role = roleRepository.getByName(SetupDataLoader.ADMIN);
+        admin.setRole(role);
+        userRepository.save(admin);
     }
 
-    private void createRole(RoleDTO roleDTO) {
-        Objects.requireNonNull(roleDTO);
-        Objects.requireNonNull(roleDTO.name());
-        if (roleDTO.id() != null) {
-            boolean existsById = roleRepository.existsById(roleDTO.id());
-            if (existsById) {
-                throw new RoleIdAlreadyExistsException(roleDTO.id());
-            }
-            entityManager.createNativeQuery("INSERT INTO role (id, name) VALUES (?,?)")
-                    .setParameter(1, roleDTO.id())
-                    .setParameter(2, roleDTO.name())
-                    .executeUpdate();
-        } else {
-            roleRepository.save(RoleDTO.toRole(roleDTO));
+    public void createEditor(UserDTO editorDTO) {
+        Objects.requireNonNull(editorDTO);
+        Objects.requireNonNull(editorDTO.email());
+        Objects.requireNonNull(editorDTO.password());
+        Objects.requireNonNull(editorDTO.name());
+        Objects.requireNonNull(editorDTO.surname());
+        Optional<User> adminFromDB = userRepository.findByEmail(editorDTO.email());
+        if (adminFromDB.isPresent()) {
+            throw new UserEmailAlreadyExistsException(editorDTO.email());
         }
+        User editor = UserDTO.toUser(editorDTO);
+        editor.setPassword(passwordEncoder.encode(editorDTO.password()));
+        editor.setEnabled(true);
+        Role role = roleRepository.getByName(SetupDataLoader.EDITOR);
+        editor.setRole(role);
+        userRepository.save(editor);
     }
 
-    public void createUser(CreateUserDTO createUserDto) {
-
+    public void rateBook(Long userId, Long bookId, int userRating) {
+        Objects.requireNonNull(userId);
+        Objects.requireNonNull(bookId);
+        if (userRating < 0 || userRating > 10) {
+            throw new IllegalRatingException(userRating);
+        }
+        User user = userRepository.findById(userId).orElseThrow(() -> new UserIdNotFoundException(userId));
+        Book book = bookRepository.findById(bookId).orElseThrow(() -> new BookIdNotFoundException(bookId));
+        Rating rating = new Rating();
+        rating.setRating(userRating);
+        rating.setBook(book);
+        rating.setUser(user);
+        Rating ratingFromDB = ratingRepository.save(rating);
+        Long countOfRating = book.getCountOfRating();
+        int oldRatingOfBook = book.getRating();
+        if (countOfRating == null) {
+            countOfRating = 0L;
+        }
+        book.setRating(countRatingOfBook(countOfRating, oldRatingOfBook, userRating));
+        book.getRatings().add(ratingFromDB);
+        bookRepository.save(book);
+        user.getRatedBooks().add(ratingFromDB);
+        userRepository.save(user);
     }
 
-    public String sign_in(Authentication authentication) {
-        Instant now = Instant.now();
-        long expiry = 36000L;
-        String scope = authentication.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .collect(Collectors.joining(" "));
-        JwtClaimsSet claims = JwtClaimsSet.builder()
-                .issuer("self")
-                .issuedAt(now)
-                .expiresAt(now.plusSeconds(expiry))
-                .subject(authentication.getName())
-                .claim("scope", scope)
-                .build();
-        return this.encoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
+    private int countRatingOfBook(Long countOfRating, int oldRatingOfBook, int userRating) {
+        long sumOfRating = countOfRating * oldRatingOfBook;
+        countOfRating += 1;
+        sumOfRating += userRating;
+        return (int) (sumOfRating / countOfRating);
+    }
+
+    public Iterable<UserDTO> getUsers(PaginationDTO paginationDTO) {
+        PageRequest pageRequest = PageRequest.of(paginationDTO.pageNumber(), paginationDTO.pageSize());
+        Page<User> users = userRepository.findAll(pageRequest);
+        return UserDTO.mapUserListToUserDtoList(users);
+    }
+
+    public UserDTO getUserById(Long id) {
+        Objects.requireNonNull(id);
+        User user = userRepository.findById(id).orElseThrow(() -> new UserIdNotFoundException(id));
+        return UserDTO.fromUser(user);
+    }
+
+    public UserDTO getUserByEmail(String email) {
+        Objects.requireNonNull(email);
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new UserEmailNotFoundException(email));
+        return UserDTO.fromUser(user);
+    }
+
+    public UserDTO updateUser(Long id) {
+        Objects.requireNonNull(id);
+        User user = userRepository.findById(id).orElseThrow(() -> new UserIdNotFoundException(id));
+        user.setName("user");
+        User changedUser = userRepository.save(user);
+        return UserDTO.fromUser(changedUser);
+    }
+
+    public void deleteUser(Long id) {
+        Objects.requireNonNull(id);
+        if (userRepository.existsById(id)) {
+            userRepository.deleteById(id);
+        } else throw new BookListIdNotFoundException(id);
     }
 }

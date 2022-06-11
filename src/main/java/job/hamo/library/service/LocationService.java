@@ -1,9 +1,9 @@
 package job.hamo.library.service;
 
 import job.hamo.library.dto.LocationDTO;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 
-@Service
+@Component
 public class LocationService {
 
     public LocationDTO stringToLocation(String[] location) {

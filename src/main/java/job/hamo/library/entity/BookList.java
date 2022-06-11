@@ -1,12 +1,7 @@
 package job.hamo.library.entity;
 
-
-import org.apache.commons.lang3.builder.EqualsBuilder;
-import org.apache.commons.lang3.builder.HashCodeBuilder;
-
 import javax.persistence.*;
 import java.util.List;
-import java.util.UUID;
 
 @Entity
 @Table(name = "bookList")
@@ -27,7 +22,7 @@ public class BookList {
     @JoinTable(name = "list_books",
             joinColumns = {@JoinColumn(name = "list_id")},
             inverseJoinColumns = {@JoinColumn(name = "book_id")})
-    private List<Book> books;
+    private List<Book> bookEntities;
 
     public Long getId() {
         return id;
@@ -46,11 +41,11 @@ public class BookList {
     }
 
     public List<Book> getBooks() {
-        return books;
+        return bookEntities;
     }
 
-    public void setBooks(List<Book> books) {
-        this.books = books;
+    public void setBooks(List<Book> bookEntities) {
+        this.bookEntities = bookEntities;
     }
 
     public User getUser() {

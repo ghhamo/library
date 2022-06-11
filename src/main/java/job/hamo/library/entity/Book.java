@@ -1,20 +1,16 @@
 package job.hamo.library.entity;
 
-import org.apache.commons.lang3.builder.EqualsBuilder;
-import org.apache.commons.lang3.builder.HashCodeBuilder;
-
 import javax.persistence.*;
 import java.io.Serializable;
 import java.util.Objects;
 import java.util.Set;
 
 @Entity
-/*
 @Table( name = "book", indexes = {
-        @Index(name = "index_author_id", columnList="author_id", unique = true),
-        @Index(name = "index_publisher_id", columnList="publisher_id", unique = true)
+        @Index(name = "index_author_id", columnList="author_id"),
+        @Index(name = "isbn", columnList="isbn"),
+        @Index(name = "index_publisher_id", columnList="publisher_id")
 })
-*/
 public class Book implements Serializable {
 
     @Id
@@ -25,7 +21,7 @@ public class Book implements Serializable {
     @Column(nullable = false)
     private String isbn;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String title;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = true, cascade = CascadeType.REMOVE)
@@ -38,10 +34,10 @@ public class Book implements Serializable {
     @JoinColumn(name = "publisher_id", nullable = true)
     private Publisher publisher;
 
-    @ManyToMany(mappedBy = "books", fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
+    @ManyToMany(mappedBy = "bookEntities", fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
     private Set<BookCollection> bookCollections;
 
-    @ManyToMany(mappedBy = "books", fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
+    @ManyToMany(mappedBy = "bookEntities", fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
     private Set<BookList> bookLists;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -52,7 +48,7 @@ public class Book implements Serializable {
     private Set<Rating> ratings;
 
     @OneToMany(mappedBy = "book", fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
-    private Set<File> files;
+    private Set<BookAsset> bookAssets;
 
     @Column(columnDefinition = "integer default 0")
     private int rating;
@@ -163,6 +159,10 @@ public class Book implements Serializable {
 
     public void setImageUrlS(String imageUrlS) {
         this.imageUrlS = imageUrlS;
+    }
+
+    public void setGenre(Genre genre) {
+        this.genre = genre;
     }
 
     @Override

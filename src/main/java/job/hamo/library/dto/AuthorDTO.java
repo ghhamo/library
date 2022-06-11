@@ -7,15 +7,15 @@ import java.util.Set;
 
 public record AuthorDTO(Long id, String name) {
 
-    public static AuthorDTO fromAuthor(Author authorEntity) {
-        return new AuthorDTO(authorEntity.getId(), authorEntity.getName());
+    public static AuthorDTO fromAuthor(Author author) {
+        return new AuthorDTO(author.getId(), author.getName());
     }
 
     public Author toAuthor() {
-        Author authorEntity = new Author();
-        authorEntity.setId(id);
-        authorEntity.setName(name);
-        return authorEntity;
+        Author author = new Author();
+        author.setId(id);
+        author.setName(name);
+        return author;
     }
 
     public static Set<AuthorDTO> mapAuthorSetToAuthorDtoSet(Iterable<Author> authors) {

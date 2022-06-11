@@ -10,7 +10,7 @@ public class EntityIdNotFoundException extends ValidationException {
         this.id = id;
     }
 
-    public Long getUuid() {
+    public Long getId() {
         return id;
     }
 }

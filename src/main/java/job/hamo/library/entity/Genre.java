@@ -2,7 +2,6 @@ package job.hamo.library.entity;
 
 import javax.persistence.*;
 import java.util.Set;
-import java.util.UUID;
 
 @Entity
 public class Genre {
@@ -15,7 +14,7 @@ public class Genre {
     private String name;
 
     @OneToMany(mappedBy = "genre", fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
-    private Set<Book> books;
+    private Set<Book> bookEntities;
 
     public Long getId() {
         return id;
@@ -34,10 +33,10 @@ public class Genre {
     }
 
     public Set<Book> getBooks() {
-        return books;
+        return bookEntities;
     }
 
-    public void setBooks(Set<Book> books) {
-        this.books = books;
+    public void setBooks(Set<Book> bookEntities) {
+        this.bookEntities = bookEntities;
     }
 }

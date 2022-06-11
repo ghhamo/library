@@ -1,48 +1,59 @@
 package job.hamo.library.util;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
 
-//@Component
+@Component
 public class ScheduledTask {
 
-    @Scheduled(fixedRate = 1000)
-    public void createDownloadJobs() {
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
-        Date now = new Date();
+    private final ScheduledTaskImpl scheduledTaskImpl;
 
-        String strDate = sdf.format(now);
-        System.err.println("The download jobs are created:: " + strDate);
+    @Autowired
+    public ScheduledTask(ScheduledTaskImpl scheduledTaskImpl) {
+        this.scheduledTaskImpl = scheduledTaskImpl;
     }
 
-    @Scheduled(fixedRate = 1000)
-    public void createImageResizingMediumJobs() {
+    @Scheduled(fixedRate = 1000000)
+    public void downloadingImagesScheduledTask() {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
         Date now = new Date();
-
+        List<Long> list = scheduledTaskImpl.getBookIdsWithPendingBigImages();
+        scheduledTaskImpl.downloadingImages(list);
         String strDate = sdf.format(now);
-        System.err.println("The ImageResizingMediumJobs jobs are created:: " + strDate);
+        System.err.println("The downloads are done:: " + strDate);
     }
 
-    @Scheduled(fixedRate = 1000)
-    public void createImageResizingSmallJobs() {
+    @Scheduled(fixedRate = 1000000)
+    public void resizingMediumImagesScheduledTask() {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
         Date now = new Date();
-
+        List<Long> list = scheduledTaskImpl.getBookIdsWithPendingMediumOrSmallImages("medium");
+        scheduledTaskImpl.resizingImages(list, "medium");
         String strDate = sdf.format(now);
-        System.err.println("The ImageResizingSmallJobs jobs are created:: " + strDate);
+        System.err.println("The medium resizes are done:: " + strDate);
     }
 
-    @Scheduled(fixedRate = 1000)
-    public void readJobs() {
+    @Scheduled(fixedRate = 1000000)
+    public void resizingSmallImagesScheduledTask() {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
         Date now = new Date();
-
+        List<Long> list = scheduledTaskImpl.getBookIdsWithPendingMediumOrSmallImages("small");
+        scheduledTaskImpl.resizingImages(list, "small");
         String strDate = sdf.format(now);
-        System.err.println("The process is done:: " + strDate);
+        System.err.println("The small resizes are done:: " + strDate);
     }
 
+    @Scheduled(fixedRate = 1000000)
+    public void updateInProgressImagesByDateScheduledTask() {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
+        Date now = new Date();
+        scheduledTaskImpl.getInProgressImages();
+        String strDate = sdf.format(now);
+        System.err.println("The updates are done:: " + strDate);
+    }
 }

@@ -1,37 +1,38 @@
 package job.hamo.library.util;
 
-import job.hamo.library.entity.File;
 import job.hamo.library.exception.BookImageUrlNotExistsException;
-import job.hamo.library.repository.FileRepository;
 import job.hamo.library.repository.BookRepository;
-import job.hamo.library.service.FileSystemService;
+import job.hamo.library.service.BookAssetService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.io.*;
+import java.io.BufferedInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.ConnectException;
 import java.net.URL;
 import java.util.Optional;
 import java.util.UUID;
 
 @Component
-public class ImageDownloader implements Runnable{
+public class ImageDownloader implements Runnable {
+
+    private final BookAssetService bookAssetService;
+    private final BookRepository bookRepository;
 
     @Autowired
-    private FileSystemService fileSystemService;
-
-    @Autowired
-    private FileRepository fileRepository;
-
-    @Autowired
-    private BookRepository bookRepository;
+    public ImageDownloader(BookAssetService bookAssetService, BookRepository bookRepository) {
+        this.bookAssetService = bookAssetService;
+        this.bookRepository = bookRepository;
+    }
 
     @Value("${image.folder}")
     private String imageFolder;
 
-    @Transactional
     public void downloadImage(Long bookId) throws IOException {
         Optional<String> bigImageUrlOfBook = bookRepository.findImageUrlLByBookId(bookId);
         if (bigImageUrlOfBook.isEmpty()) {
@@ -54,7 +55,7 @@ public class ImageDownloader implements Runnable{
         in.close();
         byte[] response = out.toByteArray();
         String name = String.format("%s_%s", UUID.randomUUID().toString().substring(1, 13), System.currentTimeMillis() / 1000);
-        java.io.File bigImage = new java.io.File(imageFolder + name + ".jpg");
+        File bigImage = new java.io.File(imageFolder + name + ".jpg");
         while (true) {
             if (bigImage.createNewFile()) {
                 FileOutputStream fos = new FileOutputStream(bigImage);
@@ -66,8 +67,7 @@ public class ImageDownloader implements Runnable{
                 bigImage = new java.io.File(imageFolder + name + ".jpg");
             }
         }
-        File file = fileSystemService.createFileSystem(bigImage, bookId, "big");
-        fileRepository.save(file);
+        bookAssetService.updateBookAsset(imageFolder + bigImage.getName(), bookId, "big");
     }
 
     @Override
